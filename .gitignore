@@ -27,6 +27,7 @@ local.properties
 dist/*.apk
 dist/*.aab
 !dist/qingxin-signin-1.1.6-release.apk
+!releases/qingxin-signin-1.1.6-release.apk
 android-app/app/release/
 
 # 杂项

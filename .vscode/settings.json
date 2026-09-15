@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^git check-ignore -v \\.\\\\releases\\\\qingxin-signin-1\\.1\\.6-release\\.apk$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
