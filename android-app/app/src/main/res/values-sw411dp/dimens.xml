@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2K：圆角 73px @3.5 ≈ 20.86dp；安全区 ≥55px ≈ 15.7dp -->
+<resources>
+    <dimen name="widget_corner">20.86dp</dimen>
+    <dimen name="widget_pad">16dp</dimen>
+</resources>

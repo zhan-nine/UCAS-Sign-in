@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">轻新签到</string>
+    <!-- 三尺寸共用同一 label，HyperOS 会在详情页聚合为同一功能的不同规格 -->
+    <string name="widget_label">轻新签到·今日课程</string>
+    <string name="widget_label_compact">轻新签到·今日课程</string>
+    <string name="widget_label_tall">轻新签到·今日课程</string>
+    <string name="widget_title_today">今日课程</string>
+    <string name="widget_title_quick">快捷签到</string>
+    <string name="widget_description">今日课程与一键签到（4×2）</string>
+    <string name="widget_description_compact">当前课与一键签到（2×2）</string>
+    <string name="widget_description_tall">完整今日课表与一键签到（4×4）</string>
+    <string name="widget_pin">添加桌面/负一屏小部件</string>
+    <string name="widget_pin_unsupported">当前系统不支持直接固定小部件</string>
+    <string name="widget_loading">加载中…</string>
+    <string name="widget_sign">一键签到</string>
+    <string name="widget_sign_short">签到</string>
+    <string name="widget_open_app">打开</string>
+    <string name="channel_attendance">签到通知</string>
+    <string name="channel_attendance_desc">上课提醒与签到结果</string>
+</resources>

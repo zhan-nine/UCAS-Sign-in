@@ -1,0 +1,35 @@
+# 构建产物与 IDE
+.gradle/
+**/build/
+.idea/
+*.iml
+.DS_Store
+.cxx/
+captures/
+*.hprof
+.kotlin/
+
+# 本机 SDK 路径（勿提交）
+local.properties
+**/local.properties
+
+# 签名与密钥（勿提交）
+**/keystore/*.jks
+**/keystore/*.keystore
+**/keystore/keystore.properties
+*.jks
+*.keystore
+
+# 安装包与映射（体积大，按需本地保留）
+*.apk
+*.aab
+*.ap_
+dist/*.apk
+dist/*.aab
+android-app/app/release/
+
+# 杂项
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

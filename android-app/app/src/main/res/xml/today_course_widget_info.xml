@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HyperOS 4×2 主卡：300×110 算格 + targetCell 4×2
+  布局自适应 Host 拉伸后的真实高度，多行显示今日课程。
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/widget_loading"
+    android:minWidth="@dimen/widget_4x2_min_width"
+    android:minHeight="@dimen/widget_4x2_min_height"
+    android:minResizeWidth="@dimen/widget_4x2_min_width"
+    android:minResizeHeight="@dimen/widget_4x2_min_height"
+    android:previewImage="@drawable/widget_preview"
+    android:previewLayout="@layout/widget_preview"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

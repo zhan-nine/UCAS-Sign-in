@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      HyperOS 官方建议（算格用，≠最终像素）：
+      2×2=110×110 | 4×2=300×110 | 4×4=300×250
+    -->
+    <dimen name="widget_2x2_min_width">110dp</dimen>
+    <dimen name="widget_2x2_min_height">110dp</dimen>
+    <dimen name="widget_4x2_min_width">300dp</dimen>
+    <dimen name="widget_4x2_min_height">110dp</dimen>
+    <dimen name="widget_4x4_min_width">300dp</dimen>
+    <dimen name="widget_4x4_min_height">250dp</dimen>
+    <!-- 1080p 圆角 55px @3x ≈ 18.33dp；安全区 ≥42px ≈ 14dp -->
+    <dimen name="widget_corner">18.33dp</dimen>
+    <dimen name="widget_pad">14dp</dimen>
+</resources>
