@@ -361,9 +361,15 @@ private fun SettingsScreen(
                 shape = RoundedCornerShape(16.dp),
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("桌面 / 负一屏", fontWeight = FontWeight.Bold)
+                    Text("桌面小部件", fontWeight = FontWeight.Bold)
                     Text(
-                        "添加 HyperOS 小部件（2×2 / 4×2 / 4×4）",
+                        stringResource(R.string.widget_pin_permission_hint),
+                        fontSize = 12.sp,
+                        color = Color(0xFFB42318),
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        "支持主流 Android 启动器（含小米 HyperOS 负一屏）。规格：2×2 / 4×2 / 4×4。",
                         fontSize = 12.sp,
                         color = Color(0xFF5B6B63),
                     )
@@ -371,6 +377,14 @@ private fun SettingsScreen(
                         onClick = { activity?.let { TodayCourseWidgetReceiver.requestPin(it) } },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text(stringResource(R.string.widget_pin)) }
+                    OutlinedButton(
+                        onClick = {
+                            activity?.let {
+                                TodayCourseWidgetReceiver.openAppDetailsForShortcutPermission(it)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.widget_pin_open_permission)) }
                 }
             }
         }

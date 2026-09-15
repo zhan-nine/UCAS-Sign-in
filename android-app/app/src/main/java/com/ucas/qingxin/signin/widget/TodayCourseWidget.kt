@@ -7,7 +7,6 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.RemoteViews
@@ -26,7 +25,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/** HyperOS 4×2（300×110）今日课程主卡。 */
+/** 跨安卓桌面小部件 4×2（今日课程主卡）。 */
 class TodayCourseWidgetReceiver : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         appWidgetIds.forEach {
@@ -48,18 +47,19 @@ class TodayCourseWidgetReceiver : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (WidgetUpdater.dispatchMiuiOrAndroidUpdate(this, context, intent)) return
+        if (WidgetUpdater.dispatchHostUpdate(this, context, intent)) return
         super.onReceive(context, intent)
         WidgetUpdater.handleReceive(context, intent)
     }
 
     companion object {
-        fun requestPin(activity: Activity): Boolean = WidgetUpdater.requestPin(activity)
+        fun requestPin(activity: Activity): Boolean = WidgetPinHelper.requestPinWide(activity)
         fun requestUpdate(context: Context) = WidgetUpdater.requestUpdate(context)
+        fun openAppDetailsForShortcutPermission(activity: Activity) = WidgetPinHelper.openAppDetails(activity)
     }
 }
 
-/** HyperOS 2×2（110×110）。 */
+/** 跨安卓桌面小部件 2×2。 */
 class TodayCourseCompactWidgetReceiver : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         appWidgetIds.forEach {
@@ -81,13 +81,13 @@ class TodayCourseCompactWidgetReceiver : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (WidgetUpdater.dispatchMiuiOrAndroidUpdate(this, context, intent)) return
+        if (WidgetUpdater.dispatchHostUpdate(this, context, intent)) return
         super.onReceive(context, intent)
         WidgetUpdater.handleReceive(context, intent)
     }
 }
 
-/** HyperOS 4×4（300×250）。 */
+/** 跨安卓桌面小部件 4×4。 */
 class TodayCourseTallWidgetReceiver : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         appWidgetIds.forEach {
@@ -109,7 +109,7 @@ class TodayCourseTallWidgetReceiver : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (WidgetUpdater.dispatchMiuiOrAndroidUpdate(this, context, intent)) return
+        if (WidgetUpdater.dispatchHostUpdate(this, context, intent)) return
         super.onReceive(context, intent)
         WidgetUpdater.handleReceive(context, intent)
     }
@@ -126,8 +126,8 @@ internal object WidgetUpdater {
     private val dayFmt = DateTimeFormatter.ofPattern("M月d日")
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    /** 按小米规范优先处理曝光刷新 / 系统刷新；返回 true 表示已处理。 */
-    fun dispatchMiuiOrAndroidUpdate(
+    /** 处理原生 / 小米 Host 的刷新广播；返回 true 表示已处理。 */
+    fun dispatchHostUpdate(
         provider: AppWidgetProvider,
         context: Context,
         intent: Intent,
@@ -141,22 +141,6 @@ internal object WidgetUpdater {
             ?: mgr.getAppWidgetIds(ComponentName(context, provider.javaClass))
         provider.onUpdate(context, mgr, ids)
         return true
-    }
-
-    fun requestPin(activity: Activity): Boolean {
-        val mgr = AppWidgetManager.getInstance(activity)
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || !mgr.isRequestPinAppWidgetSupported) {
-            Toast.makeText(activity, R.string.widget_pin_unsupported, Toast.LENGTH_LONG).show()
-            return false
-        }
-        val wide = ComponentName(activity, TodayCourseWidgetReceiver::class.java)
-        val ok = mgr.requestPinAppWidget(wide, null, null)
-        if (!ok) {
-            Toast.makeText(activity, R.string.widget_pin_unsupported, Toast.LENGTH_LONG).show()
-        } else {
-            Toast.makeText(activity, "请在系统弹窗中确认添加到桌面/负一屏", Toast.LENGTH_SHORT).show()
-        }
-        return ok
     }
 
     fun requestUpdate(context: Context) {

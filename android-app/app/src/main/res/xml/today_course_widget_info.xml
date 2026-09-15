@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  HyperOS 4×2 主卡：300×110 算格 + targetCell 4×2
-  布局自适应 Host 拉伸后的真实高度，多行显示今日课程。
+  跨安卓 4×2 主卡：
+  min 250×110（AOSP 格数公式）+ targetCell 4×2（API 31+）
+  updatePeriodMillis=30min：非小米系统的兜底刷新；小米另有曝光刷新
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_description"
@@ -15,5 +16,5 @@
     android:resizeMode="horizontal|vertical"
     android:targetCellWidth="4"
     android:targetCellHeight="2"
-    android:updatePeriodMillis="0"
+    android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen" />

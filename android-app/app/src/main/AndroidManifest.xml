@@ -21,10 +21,10 @@
         android:theme="@style/Theme.QingxinSignIn"
         android:usesCleartextTraffic="false">
 
-        <!-- HyperOS：应用级小部件版本号（有改动必须递增） -->
+        <!-- 小米可选增强：曝光刷新 / 版本号；无此 meta 时仍为标准 Android AppWidget -->
         <meta-data
             android:name="miuiWidgetVersion"
-            android:value="3" />
+            android:value="4" />
 
         <activity
             android:name=".ui.MainActivity"

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">轻新签到</string>
-    <!-- 三尺寸共用同一 label，HyperOS 会在详情页聚合为同一功能的不同规格 -->
+    <!-- 三尺寸共用同一 label，便于启动器聚合同一功能的不同规格 -->
     <string name="widget_label">轻新签到·今日课程</string>
     <string name="widget_label_compact">轻新签到·今日课程</string>
     <string name="widget_label_tall">轻新签到·今日课程</string>
@@ -10,8 +10,14 @@
     <string name="widget_description">今日课程与一键签到（4×2）</string>
     <string name="widget_description_compact">当前课与一键签到（2×2）</string>
     <string name="widget_description_tall">完整今日课表与一键签到（4×4）</string>
-    <string name="widget_pin">添加桌面/负一屏小部件</string>
-    <string name="widget_pin_unsupported">当前系统不支持直接固定小部件</string>
+    <string name="widget_pin">添加桌面小部件</string>
+    <string name="widget_pin_open_permission">打开应用权限设置</string>
+    <string name="widget_pin_unsupported">当前启动器不支持应用内直接固定小部件</string>
+    <string name="widget_pin_confirm_hint">请在系统弹窗中确认添加到桌面。若无弹窗，请先开启「创建桌面快捷方式」权限。</string>
+    <string name="widget_pin_need_shortcut_permission">未能添加小部件。请到系统设置中为本应用开启「创建桌面快捷方式 / 桌面快捷方式」权限后再试；也可长按桌面 → 小部件 / 插件 手动添加。</string>
+    <string name="widget_pin_manual_hint">请长按桌面空白处 → 小部件 / 插件 / 卡片，搜索「轻新签到」添加。若列表没有，请先在应用信息中开启「创建桌面快捷方式」权限。</string>
+    <string name="widget_pin_permission_hint">使用桌面小部件前，请先在系统设置中为本应用开启「创建桌面快捷方式」（部分系统称「桌面快捷方式」「创建快捷方式」）权限。小米 / OPPO / vivo / 华为等机型通常需要此权限。</string>
+    <string name="widget_open_settings_failed">无法打开应用设置页</string>
     <string name="widget_loading">加载中…</string>
     <string name="widget_sign">一键签到</string>
     <string name="widget_sign_short">签到</string>

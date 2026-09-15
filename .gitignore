@@ -20,15 +20,14 @@ local.properties
 *.jks
 *.keystore
 
-# 安装包与映射（体积大，按需本地保留）
+# 默认忽略 APK；仅允许 releases/ 中的发布包入库
 *.apk
 *.aab
 *.ap_
-dist/*.apk
-dist/*.aab
-!dist/qingxin-signin-1.1.6-release.apk
-!releases/qingxin-signin-1.1.6-release.apk
+!releases/
+!releases/*.apk
 android-app/app/release/
+dist/
 
 # 杂项
 *.log
