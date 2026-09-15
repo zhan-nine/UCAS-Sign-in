@@ -169,12 +169,28 @@ private fun LoginScreen(state: AppUiState, vm: MainViewModel) {
             ),
         )
         Text("连接国科大 iClass / 轻新课堂", color = Color(0xFF4A5C55))
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "可使用两套账号（共用下方同一组输入框）：",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF16362B),
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "1. SEP 邮箱 + SEP 密码\n" +
+                "2. 轻新课堂学号 + 轻新课堂密码（默认密码多为 Ucas@2025）",
+            fontSize = 12.sp,
+            color = Color(0xFF4A5C55),
+            lineHeight = 18.sp,
+        )
+        Spacer(Modifier.height(20.dp))
         OutlinedTextField(
             value = state.studentNoInput,
             onValueChange = vm::onStudentNoChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("学号") },
+            label = { Text("学号 / SEP 邮箱") },
+            placeholder = { Text("学号或邮箱") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
         )
@@ -184,6 +200,7 @@ private fun LoginScreen(state: AppUiState, vm: MainViewModel) {
             onValueChange = vm::onPasswordChange,
             modifier = Modifier.fillMaxWidth(),
             label = { Text("密码") },
+            placeholder = { Text("SEP 密码或轻新课堂密码") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),

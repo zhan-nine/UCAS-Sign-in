@@ -11,7 +11,7 @@
 
 适用于只想直接使用 App 的 Android 用户：
 
-1. 下载最新安装包 [qingxin-signin-1.1.7-release.apk](https://github.com/zhan-nine/UCAS-Sign-in/raw/refs/heads/main/releases/qingxin-signin-1.1.7-release.apk)，也可以从项目的 [Releases 发布页](https://github.com/zhan-nine/UCAS-Sign-in/releases) 或仓库 [`releases/`](./releases/) 目录获取。
+1. 下载最新安装包 [qingxin-signin-1.1.8-release.apk](https://github.com/zhan-nine/UCAS-Sign-in/raw/refs/heads/main/releases/qingxin-signin-1.1.8-release.apk)，也可以从项目的 [Releases 发布页](https://github.com/zhan-nine/UCAS-Sign-in/releases) 或仓库 [`releases/`](./releases/) 目录获取。
 2. 下载完成后，点击 APK 文件开始安装。若系统提示“禁止安装未知来源应用”，请在系统设置中允许当前使用的浏览器或文件管理器“安装未知应用”，然后返回继续安装。
 3. 如果 Android 或 HyperOS 显示“风险应用”“此应用可能有害”等侧载提醒，请先确认安装包来自本项目的可信发布页；确认来源无误后，点击“仍要安装”“继续安装”或类似按钮完成安装。
 4. 安装完成后点击“打开”，输入学校账号即可使用。
@@ -22,13 +22,18 @@
 
 ### 账号与密码
 
+可以使用两套账号，共用同一组「账号 / 密码」输入框：
+
+1. **SEP 邮箱 + SEP 密码**
+2. **轻新课堂学号 + 轻新课堂密码**（默认密码多为 `Ucas@2025`）
+
 - 用户名和密码会保存在当前手机的本地加密存储中，用于会话失效后的重新登录，不会写入 APK 或公开仓库。
 - 登录时，账号和密码仍会通过网络提交给学校登录接口；请勿在他人手机上保存账号密码。
 - 卸载 App 或在 App 内清除数据后，本机保存的账号、密码和会话信息会被删除。
 
 ## 功能概览
 
-- 学号密码登录，会话加密存储（EncryptedSharedPreferences）
+- 支持 SEP 邮箱或轻新课堂学号登录（共用同一输入框），会话加密存储（EncryptedSharedPreferences）
 - 今日课程列表、当前/下一节判定
 - 一键签到 / 自动签到 / 通知提醒
 - 签到二维码与学校时间轴对齐（`get_timestamp` + TTL）

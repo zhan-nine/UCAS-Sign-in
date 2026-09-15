@@ -6,4 +6,4 @@
 qingxin-signin-<version>-release.apk
 ```
 
-当前推荐版本：`qingxin-signin-1.1.7-release.apk`
+当前推荐版本：`qingxin-signin-1.1.8-release.apk`

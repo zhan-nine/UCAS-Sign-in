@@ -22,7 +22,7 @@ class AuthRepository(
     /** Login identity is 学号; API field name remains `phone` as confirmed in original app. */
     suspend fun login(studentNo: String, password: String): SchoolSession = mutex.withLock {
         val id = studentNo.trim()
-        require(id.isNotEmpty() && password.isNotEmpty()) { "请输入学号和密码" }
+        require(id.isNotEmpty() && password.isNotEmpty()) { "请输入学号/邮箱和密码" }
         require(password.length <= 80) { "请输入有效的学校账号密码" }
         val session = api.login(id, password)
         store.saveLoginId(id)
