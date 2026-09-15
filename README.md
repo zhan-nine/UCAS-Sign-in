@@ -7,6 +7,21 @@
 > [!CAUTION]
 > **本项目仅供学习交流使用，请勿用于任何商业用途或非法用途。**
 
+## 普通用户安装（无需 Android Studio）
+
+适用于只想直接使用 App 的 Android 用户：
+
+1. 下载 [qingxin-signin-1.1.6-release.apk](https://github.com/zhan-nine/UCAS-Sign-in/raw/refs/heads/main/dist/qingxin-signin-1.1.6-release.apk) 安装包，也可以从项目的 [Releases 发布页](https://github.com/zhan-nine/UCAS-Sign-in/releases) 获取后续版本。
+2. 下载完成后，点击 APK 文件开始安装。若系统提示“禁止安装未知来源应用”，请在系统设置中允许当前使用的浏览器或文件管理器“安装未知应用”，然后返回继续安装。
+3. 如果 Android 或 HyperOS 显示“风险应用”“此应用可能有害”等侧载提醒，请先确认安装包来自本项目的可信发布页；确认来源无误后，点击“仍要安装”“继续安装”或类似按钮完成安装。
+4. 安装完成后点击“打开”，输入学校账号即可使用。
+
+### 账号与密码
+
+- 用户名和密码会保存在当前手机的本地加密存储中，用于会话失效后的重新登录，不会写入 APK 或公开仓库。
+- 登录时，账号和密码仍会通过网络提交给学校登录接口；请勿在他人手机上保存账号密码。
+- 卸载 App 或在 App 内清除数据后，本机保存的账号、密码和会话信息会被删除。
+
 ## 功能概览
 
 - 学号密码登录，会话加密存储（EncryptedSharedPreferences）
