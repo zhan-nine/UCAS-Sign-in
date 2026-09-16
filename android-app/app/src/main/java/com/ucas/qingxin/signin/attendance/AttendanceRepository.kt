@@ -9,6 +9,7 @@ import com.ucas.qingxin.signin.data.SignResult
 import com.ucas.qingxin.signin.network.ApiException
 import com.ucas.qingxin.signin.network.QingxinApiService
 import com.ucas.qingxin.signin.qr.QrTimelineManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -38,6 +39,39 @@ class AttendanceRepository(
     }
 
     suspend fun signOneClick(course: Course): SignResult = signMutex.withLock {
+        performSign(course)
+    }
+
+    /** 是否有签到请求正在飞行中（自动路径据此让路）。 */
+    fun isSigningNow(): Boolean = inFlightCourseId != null
+
+    /**
+     * 自动签到专用入口：**绝不阻塞、绝不打断手动签到**。
+     *
+     * 抢不到锁说明用户此刻正在手动签到 —— 自动路径主动让路并返回 null
+     * （调用方不发通知，用户看到的是自己手动签到的结果）。
+     * 这样用户永远不会因为后台任务而看到 `SIGN_IN_PROGRESS`。
+     */
+    suspend fun trySignOneClick(course: Course, waitMs: Long = 3_000L): SignResult? {
+        if (!acquireOrGiveUp(waitMs)) return null
+        return try {
+            performSign(course)
+        } finally {
+            signMutex.unlock()
+        }
+    }
+
+    private suspend fun acquireOrGiveUp(waitMs: Long): Boolean {
+        val deadline = System.currentTimeMillis() + waitMs
+        while (true) {
+            if (signMutex.tryLock()) return true
+            if (System.currentTimeMillis() >= deadline) return false
+            delay(500)
+        }
+    }
+
+    /** 手动与自动两条路径共用的签到实现，保证行为完全一致。 */
+    private suspend fun performSign(course: Course): SignResult {
         if (inFlightCourseId != null) {
             throw ApiException("SIGN_IN_PROGRESS", "签到进行中，请勿重复点击")
         }

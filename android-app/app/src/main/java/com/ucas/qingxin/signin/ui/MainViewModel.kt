@@ -6,12 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.ucas.qingxin.signin.QingxinApp
 import com.ucas.qingxin.signin.data.AttendanceUiStatus
 import com.ucas.qingxin.signin.data.Course
+import com.ucas.qingxin.signin.data.KeepAliveState
 import com.ucas.qingxin.signin.data.QrSnapshot
 import com.ucas.qingxin.signin.data.SignOutcome
 import com.ucas.qingxin.signin.data.UserSettings
 import com.ucas.qingxin.signin.network.ApiException
 import com.ucas.qingxin.signin.widget.TodayCourseWidgetReceiver
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -46,13 +48,18 @@ data class AppUiState(
     val qrProgress: Float = 0f,
     val schoolNowLabel: String = "",
     val settings: UserSettings = UserSettings(),
+    /** 保活 / 省电相关实时状态（设置页展示与告警）。 */
+    val keepAlive: KeepAliveState = KeepAliveState(),
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as QingxinApp
     private val _ui = MutableStateFlow(
         if (app.isReady) {
-            AppUiState(settings = app.attendanceScheduler.getSettings())
+            AppUiState(
+                settings = app.attendanceScheduler.getSettings(),
+                keepAlive = app.attendanceScheduler.readKeepAliveState(),
+            )
         } else {
             AppUiState(
                 restoring = false,
@@ -146,6 +153,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             restoring = false,
             authenticated = false,
             settings = app.attendanceScheduler.getSettings(),
+            keepAlive = app.attendanceScheduler.readKeepAliveState(),
         )
         TodayCourseWidgetReceiver.requestUpdate(getApplication())
     }
@@ -179,6 +187,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         fromCache = result.fromCache,
                         message = result.message,
                         status = app.attendanceRepository.uiStatus(selected, schoolNow ?: displayNow),
+                        keepAlive = app.attendanceScheduler.readKeepAliveState(),
                     )
                 }
                 startQrLoopIfNeeded(force = true)
@@ -312,14 +321,49 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateSettings(
         autoSign: Boolean? = null,
         notify: Boolean? = null,
+        lowPower: Boolean? = null,
     ) {
         val cur = _ui.value.settings
         val next = cur.copy(
             autoSignEnabled = autoSign ?: cur.autoSignEnabled,
             notifyEnabled = notify ?: cur.notifyEnabled,
+            lowPowerMode = lowPower ?: cur.lowPowerMode,
         )
         app.attendanceScheduler.saveSettings(next)
-        _ui.update { it.copy(settings = next) }
+        _ui.update { it.copy(settings = next, keepAlive = app.attendanceScheduler.readKeepAliveState()) }
+        if (next.autoSignEnabled) {
+            // 常驻通知的文案要立刻跟上开关变化（读本地缓存，放到 IO 线程避免主线程 I/O）。
+            val courses = _ui.value.courses.ifEmpty { null }
+            viewModelScope.launch(Dispatchers.IO) {
+                com.ucas.qingxin.signin.attendance.AutoSignEngine
+                    .refreshDaemonStatus(getApplication(), app, courses)
+            }
+        }
+        TodayCourseWidgetReceiver.requestUpdate(getApplication())
+    }
+
+    /**
+     * 刷新保活状态；并借「应用已在前台」这个时机重试一次守护服务。
+     *
+     * 冷启动（例如被小部件宿主拉起）时启动前台服务会被系统拒绝，
+     * 那时标记的「服务被拒」状态会在这里被纠正 —— 用户把 App 切到前台即可自愈。
+     */
+    fun refreshKeepAlive() {
+        if (!app.isReady) return
+        // 放到 IO 线程：这里会读本地缓存与系统状态，不应阻塞 onResume 的渲染。
+        viewModelScope.launch(Dispatchers.IO) {
+            val settings = app.attendanceScheduler.getSettings()
+            if (settings.autoSignEnabled && !settings.lowPowerMode) {
+                app.attendanceScheduler.start()
+            }
+            val state = app.attendanceScheduler.readKeepAliveState()
+            _ui.update { it.copy(keepAlive = state) }
+        }
+    }
+
+    fun setLockConfirmed(confirmed: Boolean) {
+        app.attendanceScheduler.setLockConfirmed(confirmed)
+        _ui.update { it.copy(keepAlive = app.attendanceScheduler.readKeepAliveState()) }
     }
 
     private fun resolveQrCourse(

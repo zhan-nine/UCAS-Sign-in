@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 4×4 · 基础版（API 30 及以下）。说明见 today_course_widget_info.xml -->
+<!-- 4×4 · 全 API 通用。说明见 today_course_widget_info.xml -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_description_tall"
     android:initialLayout="@layout/widget_loading"
     android:minWidth="@dimen/widget_4x4_min_width"
     android:minHeight="@dimen/widget_4x4_min_height"
-    android:minResizeWidth="@dimen/widget_4x4_min_width"
-    android:minResizeHeight="@dimen/widget_4x4_min_height"
+    android:minResizeWidth="@dimen/widget_4x4_min_resize_width"
+    android:minResizeHeight="@dimen/widget_4x4_min_resize_height"
     android:previewImage="@drawable/widget_preview"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="1800000"

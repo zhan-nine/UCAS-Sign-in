@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 2×2 · Android 12+（API 31+）。说明见 today_course_widget_info.xml（v31） -->
+<!-- 2×2 · API 31+。故意不写 targetCell*，见 today_course_widget_info.xml（v31） -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_description_compact"
     android:initialLayout="@layout/widget_loading"
@@ -7,12 +7,10 @@
     android:maxResizeHeight="@dimen/widget_2x2_max_height"
     android:minWidth="@dimen/widget_2x2_min_width"
     android:minHeight="@dimen/widget_2x2_min_height"
-    android:minResizeWidth="@dimen/widget_2x2_min_width"
-    android:minResizeHeight="@dimen/widget_2x2_min_height"
+    android:minResizeWidth="@dimen/widget_2x2_min_resize_width"
+    android:minResizeHeight="@dimen/widget_2x2_min_resize_height"
     android:previewImage="@drawable/widget_preview"
     android:previewLayout="@layout/widget_today_compact"
     android:resizeMode="horizontal|vertical"
-    android:targetCellWidth="2"
-    android:targetCellHeight="2"
     android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen" />

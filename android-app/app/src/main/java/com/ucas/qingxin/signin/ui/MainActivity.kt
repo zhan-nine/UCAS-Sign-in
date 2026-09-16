@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -50,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,10 +67,12 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.ucas.qingxin.signin.R
+import com.ucas.qingxin.signin.attendance.KeepAliveHelper
 import com.ucas.qingxin.signin.data.AttendanceUiStatus
 import com.ucas.qingxin.signin.data.Course
 import com.ucas.qingxin.signin.util.CourseTimeDisplay
@@ -89,7 +93,12 @@ class MainActivity : ComponentActivity() {
         maybeRequestNotificationPermission()
         setContent {
             val state by vm.ui.collectAsStateWithLifecycle()
-            var screen by remember { mutableStateOf(AppScreen.Home) }
+            // 用 rememberSaveable：旋屏 / 进程重建后仍停留在同一页，而不是突然跳回首页。
+            var screen by rememberSaveable { mutableStateOf(AppScreen.Home) }
+            val onSettings = state.authenticated && screen == AppScreen.Settings
+            // 系统返回键 / 手势返回：在设置页应回到首页，而不是直接退出 App。
+            // 弹窗（AlertDialog）自带更高的返回优先级，会先关掉弹窗，不受此处影响。
+            BackHandler(enabled = onSettings) { screen = AppScreen.Home }
             QingxinTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { padding ->
                     Box(Modifier.padding(padding).fillMaxSize()) {
@@ -337,6 +346,11 @@ private fun SettingsScreen(
     onBack: () -> Unit,
 ) {
     val activity = LocalContext.current as? ComponentActivity
+    // 每次回到前台都重新核对保活状态，并借机重试一次守护服务（冷启动时可能被系统拒绝）。
+    LifecycleResumeEffect(Unit) {
+        vm.refreshKeepAlive()
+        onPauseOrDispose { }
+    }
     LazyColumn(
         Modifier
             .fillMaxSize()
@@ -365,18 +379,20 @@ private fun SettingsScreen(
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("签到偏好", fontWeight = FontWeight.Bold)
-                    SettingSwitch("自动签到", state.settings.autoSignEnabled) {
-                        vm.updateSettings(autoSign = it)
-                    }
                     SettingSwitch("签到通知", state.settings.notifyEnabled) {
                         vm.updateSettings(notify = it)
                     }
                 }
             }
         }
+        item { AutoSignCard(state, vm) }
+        item { KeepAliveCard(state, vm) }
         item {
             val context = LocalContext.current
             var showGuide by remember { mutableStateOf(false) }
+            val isColorOs = remember {
+                com.ucas.qingxin.signin.widget.VendorRom.isColorOs(context)
+            }
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(16.dp),
@@ -398,8 +414,7 @@ private fun SettingsScreen(
                         color = Color(0xFF5B6B63),
                     )
                     Text(
-                        "三种规格在桌面与负一屏通用。若系统选择器打不开（ColorOS 16 已知问题），" +
-                            "用下面的按钮直接添加。",
+                        WidgetPinHelper.romHint(context),
                         fontSize = 12.sp,
                         color = Color(0xFF5B6B63),
                     )
@@ -424,6 +439,16 @@ private fun SettingsScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text(stringResource(R.string.widget_pin_open_permission)) }
+                    OutlinedButton(
+                        onClick = { activity?.let { WidgetPinHelper.openAutoStart(it) } },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(stringResource(R.string.widget_pin_open_autostart)) }
+                    if (isColorOs) {
+                        OutlinedButton(
+                            onClick = { activity?.let { WidgetPinHelper.openColorOsShelf(it) } },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(stringResource(R.string.widget_pin_open_shelf)) }
+                    }
                 }
             }
             if (showGuide) {
@@ -479,6 +504,186 @@ private fun SettingsScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun AutoSignCard(state: AppUiState, vm: MainViewModel) {
+    val ka = state.keepAlive
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(stringResource(R.string.auto_sign_card_title), fontWeight = FontWeight.Bold)
+            Text(
+                stringResource(R.string.auto_sign_card_desc),
+                fontSize = 12.sp,
+                color = Color(0xFF5B6B63),
+            )
+            SettingSwitch(stringResource(R.string.auto_sign_enable), state.settings.autoSignEnabled) {
+                vm.updateSettings(autoSign = it)
+            }
+            SettingSwitch(stringResource(R.string.keepalive_low_power), state.settings.lowPowerMode) {
+                vm.updateSettings(lowPower = it)
+            }
+            Text(
+                stringResource(R.string.keepalive_low_power_desc),
+                fontSize = 11.sp,
+                color = Color(0xFF6B7C74),
+            )
+            if (state.settings.autoSignEnabled) {
+                Text(
+                    if (ka.estimatedWakeupsToday > 0) {
+                        stringResource(R.string.keepalive_wakeup_budget, ka.estimatedWakeupsToday)
+                    } else {
+                        stringResource(R.string.keepalive_wakeup_budget_unknown)
+                    },
+                    fontSize = 11.sp,
+                    color = Color(0xFF6B7C74),
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun KeepAliveCard(state: AppUiState, vm: MainViewModel) {
+    val activity = LocalContext.current as? ComponentActivity
+    val ka = state.keepAlive
+    var showLockGuide by remember { mutableStateOf(false) }
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.keepalive_title), fontWeight = FontWeight.Bold)
+
+            if (ka.autoSignEnabled && !ka.batteryExempt) {
+                Text(
+                    stringResource(R.string.keepalive_alert_no_battery),
+                    fontSize = 12.sp,
+                    color = Color(0xFFB42318),
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+            if (ka.autoSignEnabled && !ka.notificationsAllowed) {
+                Text(
+                    stringResource(R.string.keepalive_alert_no_notification),
+                    fontSize = 12.sp,
+                    color = Color(0xFFB42318),
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+            if (ka.daemonBlocked) {
+                Text(
+                    stringResource(R.string.keepalive_alert_daemon_blocked),
+                    fontSize = 12.sp,
+                    color = Color(0xFFB42318),
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+
+            Text(stringResource(R.string.keepalive_status_title), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            StatusRow(stringResource(R.string.keepalive_status_battery), ka.batteryExempt)
+            StatusRow(stringResource(R.string.keepalive_status_notification), ka.notificationsAllowed)
+            StatusRow(stringResource(R.string.keepalive_status_exact_alarm), ka.exactAlarmAllowed)
+            StatusRow(
+                stringResource(R.string.keepalive_status_autostart),
+                ka.autoStartConfirmed,
+                unknown = !ka.autoStartConfirmed,
+            )
+            StatusRow(
+                stringResource(R.string.keepalive_status_lock),
+                ka.lockConfirmed,
+                unknown = !ka.lockConfirmed,
+            )
+            if (!ka.lowPowerMode) {
+                StatusRow(
+                    stringResource(R.string.keepalive_status_daemon),
+                    ka.daemonRunning && !ka.daemonBlocked,
+                )
+            }
+            if (!ka.autoStartConfirmed) {
+                Text(
+                    stringResource(R.string.keepalive_autostart_note),
+                    fontSize = 11.sp,
+                    color = Color(0xFF6B7C74),
+                )
+            }
+
+            OutlinedButton(
+                onClick = { activity?.let { KeepAliveHelper.requestBatteryExemption(it) } },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.keepalive_open_battery)) }
+            OutlinedButton(
+                onClick = { activity?.let { KeepAliveHelper.openAutoStart(it) } },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.keepalive_open_autostart)) }
+            if (!ka.exactAlarmAllowed) {
+                OutlinedButton(
+                    onClick = { activity?.let { KeepAliveHelper.openExactAlarmSettings(it) } },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.keepalive_open_exact_alarm)) }
+            }
+            if (!ka.notificationsAllowed) {
+                OutlinedButton(
+                    onClick = { activity?.let { KeepAliveHelper.openNotificationSettings(it) } },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.keepalive_open_notification)) }
+            }
+            OutlinedButton(
+                onClick = { showLockGuide = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.keepalive_lock_button)) }
+        }
+    }
+    if (showLockGuide) {
+        val context = LocalContext.current
+        AlertDialog(
+            onDismissRequest = { showLockGuide = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        vm.setLockConfirmed(true)
+                        showLockGuide = false
+                    },
+                ) { Text(stringResource(R.string.keepalive_lock_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLockGuide = false }) {
+                    Text(stringResource(R.string.keepalive_lock_close))
+                }
+            },
+            title = { Text(stringResource(R.string.keepalive_lock_title)) },
+            text = { Text(KeepAliveHelper.lockInRecentsGuide(context), fontSize = 12.sp) },
+        )
+    }
+}
+
+@Composable
+private fun StatusRow(label: String, ok: Boolean, unknown: Boolean = false) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, fontSize = 13.sp, color = Color(0xFF3E5249))
+        Text(
+            when {
+                unknown -> stringResource(R.string.keepalive_status_unknown)
+                ok -> stringResource(R.string.keepalive_status_ok)
+                else -> stringResource(R.string.keepalive_status_todo)
+            },
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = when {
+                unknown -> Color(0xFF8FA89C)
+                ok -> Color(0xFF2E7D4F)
+                else -> Color(0xFFB42318)
+            },
+        )
     }
 }
 

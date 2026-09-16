@@ -63,4 +63,25 @@ data class QrSnapshot(
 data class UserSettings(
     val autoSignEnabled: Boolean = false,
     val notifyEnabled: Boolean = true,
+    /** 低耗电模式：不常驻前台服务与常驻通知，仅保留「每节课一个闹钟」。 */
+    val lowPowerMode: Boolean = false,
+)
+
+/**
+ * 保活/耗电相关的实时状态，供设置页展示与告警。
+ *
+ * 其中 [autoStartConfirmed] 与 [lockConfirmed] 无法通过系统 API 查询，
+ * 分别由「是否收到过开机广播」与「用户手动确认」代替。
+ */
+data class KeepAliveState(
+    val autoSignEnabled: Boolean = false,
+    val lowPowerMode: Boolean = false,
+    val batteryExempt: Boolean = false,
+    val exactAlarmAllowed: Boolean = false,
+    val notificationsAllowed: Boolean = true,
+    val daemonRunning: Boolean = false,
+    val autoStartConfirmed: Boolean = false,
+    val lockConfirmed: Boolean = false,
+    val daemonBlocked: Boolean = false,
+    val estimatedWakeupsToday: Int = 0,
 )

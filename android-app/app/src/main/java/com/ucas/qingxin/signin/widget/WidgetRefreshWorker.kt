@@ -34,6 +34,8 @@ import java.util.concurrent.TimeUnit
  *    而不是等下一个固定周期。
  * 3. **数据兜底闹钟**：若近期没有课时边界，最多 10 分钟抓一次数据，保证
  *    「今天临时加了课」「别人替你签到了」这类变化能被带进来。
+ *    自动签到守护进程存活时，该间隔自动放宽到 45 分钟
+ *    （见 [setDaemonActive]）—— 守护进程本身就是精确唤醒通道，不需要小部件再兜底。
  * 4. **WorkManager 周期任务**（15 分钟）：进程被杀、闹钟被 ROM 掐掉后的最终兜底。
  *
  * 另外 provider 里的 `updatePeriodMillis` 也保留着，让宿主（桌面/负一屏）
@@ -58,12 +60,41 @@ internal object WidgetRefreshScheduler {
     /** 数据兜底：近期没有课时边界时，最多隔这么久抓一次。 */
     private const val DATA_FALLBACK_MS = 10L * 60L * 1000L
 
+    /**
+     * 自动签到守护进程存活时的数据兜底间隔。
+     *
+     * 守护进程本身就是一条「随时能精确唤醒」的通道，因此小部件不需要再靠
+     * 每 10 分钟一次的 `RTC_WAKEUP` 兜底 —— 这一条单独就省掉约 100+ 次/天唤醒。
+     * 内容仍然由课时边界闹钟（开课前 25 分钟 / 上课 / 下课 / 次日 00:02）
+     * 与守护进程事件驱动刷新，**不会变旧**。
+     */
+    private const val DAEMON_FALLBACK_MS = 45L * 60L * 1000L
+
     /** 进程内定时器触发数据抓取的间隔。 */
     private const val TICKER_DATA_INTERVAL_MS = 5L * 60L * 1000L
 
     private const val REQ_CODE_ALARM = 9001
 
     private val zone: ZoneId = ZoneId.of("Asia/Shanghai")
+
+    /**
+     * 自动签到守护进程是否存活（由 `AttendanceDaemonService` 维护）。
+     * 存活时把数据兜底闹钟从 10 分钟抬到 45 分钟，显著降低唤醒次数。
+     */
+    @Volatile
+    private var daemonActive = false
+
+    /**
+     * 由 `AttendanceDaemonService` 在 onStartCommand / onDestroy 时调用。
+     * 状态变化后立刻重排闹钟，让新的兜底间隔马上生效。
+     */
+    fun setDaemonActive(context: Context, active: Boolean) {
+        if (daemonActive == active) return
+        daemonActive = active
+        runCatching { rescheduleAlarm(context.applicationContext) }
+    }
+
+    fun isDaemonActive(): Boolean = daemonActive
 
     // ------------------------------------------------------------------ 生命周期
 
@@ -250,7 +281,7 @@ internal object WidgetRefreshScheduler {
      * 以及次日零点后 2 分钟（跨天换课表）。
      */
     fun nextTriggerAt(context: Context, now: Long): Long {
-        val fallback = now + DATA_FALLBACK_MS
+        val fallback = now + if (daemonActive) DAEMON_FALLBACK_MS else DATA_FALLBACK_MS
         val boundaries = ArrayList<Long>()
 
         val app = context.applicationContext as? QingxinApp

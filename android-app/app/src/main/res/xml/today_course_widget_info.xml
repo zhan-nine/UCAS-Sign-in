@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  4×2 主卡 · 基础版（API 30 及以下 / 厂商回移启动器）
-  - 只声明 minWidth/minHeight：AOSP 官方「格数换 dp」公式 minSize ≈ 70×n − 30
-  - 不写 targetCellWidth/Height：ColorOS 等启动器会优先读取该字段，
-    Android 12 之前不认识时会退化成 0，导致小部件被判定为「零尺寸」而不显示
-  - updatePeriodMillis=1800000（系统下限 30 分钟）：这是**唯一**不依赖本应用
-    进程存活的标准刷新通道，由宿主定期推 ACTION_APPWIDGET_UPDATE。
-    更细的刷新由 WidgetRefreshWorker 里的「边界闹钟 + 进程内定时器 + WorkManager」
-    负责，二者互补而非二选一。
+  4×2 主卡 · 全 API 通用声明（含 ColorOS / OxygenOS / HyperOS）
+
+  成熟项目结论（BeeCount #307、Breezy Weather、Fossify）：
+  - ColorOS 对 targetCellWidth/Height 处理有误 → **一律不写**
+  - 只靠 minWidth/minHeight，让启动器按本机网格换算格数
+  - previewImage 必须提供；previewLayout 在部分 ColorOS 选择器上会缓存异常，
+    因此基础版只用 previewImage，v31 版才补 previewLayout 作为增强
+  - minResize 放小，避免被判定为「不可用 / 不可缩放」
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_description"
     android:initialLayout="@layout/widget_loading"
     android:minWidth="@dimen/widget_4x2_min_width"
     android:minHeight="@dimen/widget_4x2_min_height"
-    android:minResizeWidth="@dimen/widget_4x2_min_width"
-    android:minResizeHeight="@dimen/widget_4x2_min_height"
+    android:minResizeWidth="@dimen/widget_4x2_min_resize_width"
+    android:minResizeHeight="@dimen/widget_4x2_min_resize_height"
     android:previewImage="@drawable/widget_preview"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="1800000"

@@ -21,8 +21,8 @@ android {
         applicationId = "com.ucas.qingxin.signin"
         minSdk = 26
         targetSdk = 35
-        versionCode = 23
-        versionName = "1.1.10"
+        versionCode = 26
+        versionName = "1.1.13"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

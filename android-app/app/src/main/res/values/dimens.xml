@@ -1,28 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-      跨安卓桌面网格兼容：
-      - AOSP 官方换算：格数 n ↔ minSize ≈ 70×n − 30
-        2×2→110×110 | 4×2→250×110 | 4×4→250×250
-      - 小米 HyperOS 建议表为 110/300/250；用 targetCell（API 31+）锁格后，
-        以 AOSP 的 250dp 宽在所有启动器上都能稳定落成 4 列，不会占成 5 列
-      - maxResize* 仅 API 31+ 生效，给用户放大空间，避免被判定为「不可缩放」
+      跨安卓桌面网格兼容（2026 实测 + 成熟项目 BeeCount ColorOS 修复）：
+      - **不使用 targetCellWidth/Height**：ColorOS / OxygenOS 启动器对这些属性
+        处理有误，会把 4×2 压缩成错误格数（见 BeeCount #307）。
+        改为只声明 minWidth/minHeight，由启动器按网格自行换算。
+      - AOSP 经验公式：minSize ≈ 70×n − 30；小米官方 4×2 为 300×110。
+      - ColorOS 常见 5 列桌面：minWidth=300dp ≈ 近全宽，不会被 targetCell 压扁。
+      - minResize* 放小，允许用户在 ColorOS / OriginOS 上手动缩到更小。
     -->
     <dimen name="widget_2x2_min_width">110dp</dimen>
     <dimen name="widget_2x2_min_height">110dp</dimen>
-    <dimen name="widget_4x2_min_width">250dp</dimen>
+    <dimen name="widget_4x2_min_width">300dp</dimen>
     <dimen name="widget_4x2_min_height">110dp</dimen>
-    <dimen name="widget_4x4_min_width">250dp</dimen>
+    <dimen name="widget_4x4_min_width">300dp</dimen>
     <dimen name="widget_4x4_min_height">250dp</dimen>
 
-    <dimen name="widget_2x2_max_width">250dp</dimen>
-    <dimen name="widget_2x2_max_height">250dp</dimen>
+    <!-- 允许缩到近似 2 列 / 1 行，避免 ColorOS 把「不可缩放」当成不可用 -->
+    <dimen name="widget_2x2_min_resize_width">70dp</dimen>
+    <dimen name="widget_2x2_min_resize_height">70dp</dimen>
+    <dimen name="widget_4x2_min_resize_width">110dp</dimen>
+    <dimen name="widget_4x2_min_resize_height">70dp</dimen>
+    <dimen name="widget_4x4_min_resize_width">110dp</dimen>
+    <dimen name="widget_4x4_min_resize_height">110dp</dimen>
+
+    <dimen name="widget_2x2_max_width">460dp</dimen>
+    <dimen name="widget_2x2_max_height">460dp</dimen>
     <dimen name="widget_4x2_max_width">460dp</dimen>
     <dimen name="widget_4x2_max_height">460dp</dimen>
     <dimen name="widget_4x4_max_width">460dp</dimen>
     <dimen name="widget_4x4_max_height">460dp</dimen>
 
-    <!-- 圆角：兼顾系统裁切；2K 见 values-sw411dp -->
     <dimen name="widget_corner">16dp</dimen>
     <dimen name="widget_pad">14dp</dimen>
 </resources>

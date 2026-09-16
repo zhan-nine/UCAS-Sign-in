@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">轻新签到</string>
-    <!-- 三尺寸共用同一 label，便于启动器聚合同一功能的不同规格 -->
+    <!-- 三尺寸使用不同 label：ColorOS Shelf / 部分启动器会把相同 label 合并成一项或隐藏 -->
     <string name="widget_label">轻新签到·今日课程</string>
-    <string name="widget_label_compact">轻新签到·今日课程</string>
-    <string name="widget_label_tall">轻新签到·今日课程</string>
+    <string name="widget_label_compact">轻新签到·快捷签到</string>
+    <string name="widget_label_tall">轻新签到·完整课表</string>
     <string name="widget_title_today">今日课程</string>
     <string name="widget_title_quick">快捷签到</string>
     <string name="widget_description">今日课程与一键签到（4×2）</string>
@@ -14,9 +14,20 @@
     <string name="widget_pin_open_permission">打开应用权限设置</string>
     <string name="widget_pin_unsupported">当前启动器不支持应用内直接固定小部件</string>
     <string name="widget_pin_confirm_hint">请在系统弹窗中确认添加到桌面。若无弹窗，请先开启「创建桌面快捷方式」权限。</string>
+    <string name="widget_pin_confirm_hint_coloros">请在系统弹窗中确认。若无弹窗：①开启「创建桌面快捷方式」；②确认系统应用 Shelf 已启用（ColorOS 16 常见原因）。</string>
+    <string name="widget_pin_success">小部件已添加到桌面</string>
     <string name="widget_pin_need_shortcut_permission">未能添加小部件。请到系统设置中为本应用开启「创建桌面快捷方式 / 桌面快捷方式」权限后再试；也可长按桌面 → 小部件 / 插件 手动添加。</string>
     <string name="widget_pin_manual_hint">请长按桌面空白处 → 小部件 / 插件 / 卡片，搜索「轻新签到」添加。若列表没有，请先在应用信息中开启「创建桌面快捷方式」权限。</string>
     <string name="widget_pin_permission_hint">使用桌面小部件前，请先在系统设置中为本应用开启「创建桌面快捷方式」（部分系统称「桌面快捷方式」「创建快捷方式」）权限。小米 / OPPO / vivo / 华为等机型通常需要此权限。</string>
+    <string name="widget_pin_open_autostart">打开自启动 / 后台运行设置</string>
+    <string name="widget_pin_open_shelf">打开 Shelf 应用详情（ColorOS）</string>
+    <string name="widget_rom_hint_coloros">已识别为 ColorOS / OxygenOS。推荐优先用下方按钮添加；若长按桌面「小部件」无响应，请启用系统应用 Shelf，并允许本应用自启动。</string>
+    <string name="widget_rom_hint_xiaomi">已识别为小米 / HyperOS。可添加到桌面或负一屏；请允许「创建桌面快捷方式」。</string>
+    <string name="widget_rom_hint_vivo">已识别为 vivo / OriginOS。桌面可能不支持应用内直接添加，请按手动步骤操作，并允许自启动。</string>
+    <string name="widget_rom_hint_huawei">已识别为华为 / 荣耀。桌面可能不支持应用内直接添加，请按手动步骤操作。</string>
+    <string name="widget_rom_hint_generic">三种规格在桌面与负一屏通用。若系统选择器打不开，请用下方按钮直接添加。</string>
+    <string name="widget_guide_keepalive">若小部件添加后一直空白或不刷新：请在系统设置中允许本应用「自启动 / 后台运行 / 耗电不受限」，否则进程被杀后只能显示占位布局。</string>
+    <string name="widget_guide_coloros">OPPO / 一加 / realme（ColorOS 16）：\n1) 优先用本页「选择规格添加到桌面」按钮（系统选择器在 ColorOS 16 上经常失效）；\n2) 长按桌面 → 小部件 → 搜索「轻新签到」；\n3) 若「小部件」入口无响应：设置 → 应用 → 应用管理 → 右上角「显示系统程序」→ 搜索 Shelf → 启用，然后强制停止一次桌面/启动器；\n4) 允许本应用「创建桌面快捷方式」与「自启动」。</string>
     <string name="widget_open_settings_failed">无法打开应用设置页</string>
     <string name="widget_loading">加载中…</string>
     <string name="widget_sign">一键签到</string>
@@ -48,7 +59,6 @@
     <string name="widget_pin_guide_close">知道了</string>
     <string name="widget_pin_detected_launcher">当前桌面：%1$s</string>
     <string name="widget_guide_xiaomi">小米 / HyperOS：\n1) 长按桌面空白处 → 添加小部件 → 搜索「轻新签到」；\n2) 负一屏：左滑到负一屏 → 点右上角「+ / 编辑」→ 添加小部件；\n3) 若长按无反应，先卸载“桌面”更新或在应用信息里允许「创建桌面快捷方式」。</string>
-    <string name="widget_guide_coloros">OPPO / 一加 / realme（ColorOS 16）：\n1) 长按桌面空白处 → 小部件 → 搜索「轻新签到」；\n2) 若「小部件」入口点了没反应（ColorOS 16 已知问题）：设置 → 应用 → 应用管理 → 右上角「显示系统程序」→ 搜索 Shelf → 启用；\n3) 或先临时停用 Shelf，用旧版选择器添加后再启用。</string>
     <string name="widget_guide_originos">vivo / iQOO（OriginOS）：\n1) 长按桌面空白处 → 原子组件 / 小部件 → 搜索「轻新签到」；\n2) 若列表为空，请在桌面设置中开启「允许添加小部件」，并为本应用开启「创建桌面快捷方式」。</string>
     <string name="widget_guide_harmony">华为 / 荣耀（HarmonyOS、EMUI）：\n1) 双指捏合桌面 → 窗口小工具 → 搜索「轻新签到」；\n2) 若没有该入口，请先在应用信息中开启「创建桌面快捷方式」。</string>
     <string name="widget_guide_samsung">三星 One UI：长按桌面空白处 → 小组件 → 搜索「轻新签到」。</string>
@@ -56,6 +66,70 @@
 
     <string name="channel_attendance">签到通知</string>
     <string name="channel_attendance_desc">上课提醒与签到结果</string>
+    <!-- 常驻状态通知必须用独立渠道：渠道重要性创建后不可修改，不能复用「签到通知」 -->
+    <string name="channel_auto_status">自动签到状态</string>
+    <string name="channel_auto_status_desc">常驻显示自动签到是否运行、下次签到时刻（静默，不打扰）</string>
+
+    <!-- 自动签到：设置页主卡 -->
+    <string name="auto_sign_card_title">自动签到</string>
+    <string name="auto_sign_card_desc">每节课在「开课前 15 分钟 ~ 上课时刻」之间随机取一个时刻签到，每节课重新随机，且随机时刻不会写入本机。后台结果一定会通知。</string>
+    <string name="auto_sign_enable">开启自动签到</string>
+
+    <!-- 自动签到：常驻状态通知 -->
+    <string name="auto_sign_daemon_title">自动签到运行中</string>
+    <string name="auto_sign_status_next">下次自动签到：%1$s · %2$s</string>
+    <string name="auto_sign_status_all_done">今日课程已全部签到完成</string>
+    <string name="auto_sign_status_no_course">今日无课程，待命中</string>
+    <string name="auto_sign_status_need_login">请打开应用登录，自动签到才能生效</string>
+    <string name="auto_sign_status_waiting">正在准备自动签到…</string>
+
+    <!-- 自动签到：前置提醒（随机时刻前 2 分钟，进程内发出，不额外唤醒设备） -->
+    <string name="auto_sign_upcoming_title">即将自动签到</string>
+    <string name="auto_sign_upcoming_body">将在 %1$s 为《%2$s》自动签到</string>
+
+    <!-- 自动签到：结果通知（强制发出，不受「签到通知」开关影响） -->
+    <string name="auto_sign_result_ok_title">自动签到成功</string>
+    <string name="auto_sign_result_ok_body">《%1$s》已自动签到成功</string>
+    <string name="auto_sign_result_fail_title">自动签到失败</string>
+    <string name="auto_sign_result_fail_body">《%1$s》签到失败：%2$s\n请打开应用手动签到</string>
+    <string name="auto_sign_fail_generic">后台重试已用尽</string>
+    <string name="auto_sign_fail_expired">已错过可签到时段</string>
+
+    <!-- 保活引导 -->
+    <string name="keepalive_title">后台运行与省电</string>
+    <string name="keepalive_alert_no_battery">自动签到已开启，但本应用仍受省电策略限制：系统可能把签到推迟十几分钟甚至直接跳过。请点击下方「关闭省电策略」。</string>
+    <string name="keepalive_alert_no_notification">通知权限被关闭：常驻状态通知与自动签到结果通知都不会显示。请点击下方「开启通知」。</string>
+    <string name="keepalive_alert_daemon_blocked">系统拒绝了常驻后台服务，已自动降级为「仅闹钟」模式。建议按下面步骤允许自启动并锁定后台。</string>
+    <string name="keepalive_status_title">当前状态</string>
+    <string name="keepalive_status_ok">已就绪</string>
+    <string name="keepalive_status_todo">待处理</string>
+    <string name="keepalive_status_unknown">未确认</string>
+    <string name="keepalive_status_battery">省电策略豁免</string>
+    <string name="keepalive_status_notification">通知权限</string>
+    <string name="keepalive_status_exact_alarm">精确闹钟</string>
+    <string name="keepalive_status_autostart">自启动</string>
+    <string name="keepalive_status_lock">锁定后台</string>
+    <string name="keepalive_status_daemon">常驻后台服务</string>
+    <string name="keepalive_autostart_note">系统未提供查询接口，重启一次手机后即可自动确认</string>
+    <string name="keepalive_open_battery">关闭省电策略</string>
+    <string name="keepalive_open_autostart">允许自启动</string>
+    <string name="keepalive_open_exact_alarm">允许精确闹钟</string>
+    <string name="keepalive_open_notification">开启通知</string>
+    <string name="keepalive_lock_title">锁定后台（防止进程被杀）</string>
+    <string name="keepalive_lock_button">锁定后台（图文步骤）</string>
+    <string name="keepalive_lock_confirm">我已按步骤锁定后台</string>
+    <string name="keepalive_lock_close">知道了</string>
+    <string name="keepalive_low_power_title">低耗电模式</string>
+    <string name="keepalive_low_power_desc">关闭常驻通知与后台服务，只保留每节课一个闹钟。更省电，但可能晚几十秒到十几分钟，也不再有「下次签到时刻」的常驻提示。</string>
+    <string name="keepalive_wakeup_budget">今日预计唤醒：%1$d 次（每节课 1 次 + 跨天 1 次）</string>
+    <string name="keepalive_wakeup_budget_unknown">唤醒预算：按今日课表计算</string>
+    <string name="keepalive_low_power">低耗电模式</string>
+    <string name="keepalive_lock_coloros">OPPO / 一加 / realme（ColorOS）：\n1) 打开「最近任务」（多任务）界面；\n2) 找到本应用卡片，下拉（或长按卡片右上角「⋮」）；\n3) 选择「锁定」/ 出现小锁图标即可；\n4) 再到 设置 → 电池 → 应用耗电管理 → 本应用 → 允许「后台运行 / 允许完全后台行为」。</string>
+    <string name="keepalive_lock_miui">小米 / Redmi（HyperOS / MIUI）：\n1) 打开「最近任务」；\n2) 长按本应用卡片 → 点击出现的「锁」图标；\n3) 再到 设置 → 应用设置 → 本应用 → 省电策略 → 选「无限制」；\n4) 设置 → 应用设置 → 本应用 → 自启动 → 允许。</string>
+    <string name="keepalive_lock_vivo">vivo / iQOO（OriginOS）：\n1) 打开「最近任务」；\n2) 点击本应用卡片右上角「⋮」→ 选择「锁定」；\n3) 再到 i 管家 → 应用管理 → 权限管理 → 自启动 → 允许本应用；\n4) i 管家 → 省电管理 → 后台高耗电 → 允许本应用。</string>
+    <string name="keepalive_lock_harmony">华为 / 荣耀（HarmonyOS / EMUI）：\n1) 打开「最近任务」；\n2) 下拉本应用卡片，出现小锁图标；\n3) 再到 设置 → 应用和服务 → 应用启动管理 → 本应用 → 关闭「自动管理」，手动勾选全部项；\n4) 设置 → 电池 → 更多电池设置 → 关闭「休眠时始终保持网络连接」不影响本应用，但请勿把本应用加入「省电模式」白名单之外。</string>
+    <string name="keepalive_lock_samsung">三星 One UI：\n1) 打开「最近任务」；\n2) 点击本应用图标 → 选择「保持打开」；\n3) 再到 设置 → 电池 → 后台使用限制 → 从「休眠应用」中移除本应用。</string>
+    <string name="keepalive_lock_aosp">原生 Android：\n1) 打开「最近任务」，长按本应用卡片 → 「锁定」；\n2) 设置 → 应用 → 本应用 → 电池 → 选择「不受限制」。</string>
 
     <!-- 开源许可 -->
     <string name="license_entry">开源许可与第三方组件</string>

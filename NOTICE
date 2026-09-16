@@ -65,19 +65,40 @@ Source）即为本仓库中的该文件本身；本仓库公开可获取，满�
 **使用范围**：仅作为**规格与设计参考**，未直接复制代码。
 
   - `minSize ≈ 70×n − 30` 的格数↔dp 换算经验公式；
-  - `targetCellWidth` / `targetCellHeight` 与 `minWidth` / `minHeight` 的
-    版本分工（API 31+ 与 API 30 及以下的资源拆分方式）；
-  - 官方建议：需要可靠定时刷新时应将 `updatePeriodMillis` 设为 0 并改用
-    `WorkManager`。
+  - 官方建议：需要可靠定时刷新时应将 `updatePeriodMillis` 设为 0（或系统下限）
+    并配合 `WorkManager` / 闹钟；
+  - 注意：本项目**刻意不使用** `targetCellWidth/Height`——该字段在 ColorOS 上
+    有已知兼容问题（见上方 BeeCount 参考），与「官方推荐使用 targetCell」存在取舍。
 
 参考实现见本仓库 `android-app/app/src/main/res/xml/` 与 `res/xml-v31/` 下的
 provider 声明，以及 `widget/WidgetRefreshWorker.kt`。这些文件为本项目原创代码。
+
+**后台任务相关**（同样仅作规格参考，未复制代码）：
+
+  - 前台服务类型与时长限制：`dataSync` 在 Android 15 起有 24 小时共 6 小时配额，
+    超时后系统要求停止；`BOOT_COMPLETED` 不允许启动 `dataSync` 等类型的前台服务。
+    本项目据此改用 `specialUse`。来源：Android Developers
+    「Foreground service types are required」「Restrictions on starting
+    foreground services from the background」。
+  - `setAndAllowWhileIdle` 在 Doze 下约 15 分钟才放行一次；
+    `setExactAndAllowWhileIdle` 每次唤醒会给约 10 秒的 partial wakelock 与
+    电量豁免，属于昂贵操作，应仅用于用户可见的操作。
+  - App Standby 分桶会限制闹钟频次，而取得电池优化豁免的 App 不受该限制。
+  - `WorkManager` 官方建议：优先让系统把多个 App 的任务批量合并执行，
+    比直接使用 wakeup 闹钟更省电。
+
+对应的本项目原创实现见 `attendance/AttendanceScheduler.kt`、
+`attendance/AttendanceDaemonService.kt`、`attendance/AutoSignEngine.kt`
+与 `widget/WidgetRefreshWorker.kt`。
 
 ### 3. 其他参考（未使用其代码）
 
 以下资料仅用于**调研厂商 ROM 行为与绕行方案**，本项目未复制其任何代码：
 
-  - OPPO / OnePlus 社区关于 ColorOS / OxygenOS 16 小部件选择器缺陷的公开讨论；
+  - [BeeCount #307](https://github.com/TNT-Likely/BeeCount/pull/307)：确认 ColorOS
+    对 `targetCellWidth/Height` 处理有误，应移除该字段并改用较大的 `minWidth`
+    （本仓库按此结论调整了 provider 声明，但未使用 BeeCount 的任何源码）；
+  - OPPO / OnePlus 社区关于 ColorOS / OxygenOS 16 小部件选择器缺陷、Shelf 应用的公开讨论；
   - Stack Overflow 关于华为 / vivo 启动器 `requestPinAppWidget` 不生效的讨论；
   - isene/nomad 项目关于 ColorOS 16 破坏 `ACTION_APPWIDGET_PICK` 的公开提交说明。
 

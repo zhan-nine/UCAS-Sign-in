@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  4×2 主卡 · Android 12+（API 31+）
-  - targetCell*：官方在 API 31+ 的首选尺寸声明，锁定 4×2 格
-  - maxResize*：允许用户放大，避免被启动器限制成「不可缩放」
-  - previewLayout：部分启动器（OriginOS / HarmonyOS）优先用真实布局做预览
-  - 与基础版共用 minWidth/minHeight，保证换算出的格数一致（4 列 = 250dp）
+  4×2 · API 31+ 增强版
+  - **故意不写 targetCell***：ColorOS / OxygenOS 16 会错误解释该字段并把小部件压扁
+    （成熟项目 BeeCount #307 已验证；移除后改由 minWidth 换算格数）
+  - 保留 maxResize* 与 previewLayout：原生 / Pixel / HyperOS 选择器体验更好
+  - ColorOS 选择器若忽略 previewLayout，会回退到 previewImage
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_description"
@@ -13,12 +13,10 @@
     android:maxResizeHeight="@dimen/widget_4x2_max_height"
     android:minWidth="@dimen/widget_4x2_min_width"
     android:minHeight="@dimen/widget_4x2_min_height"
-    android:minResizeWidth="@dimen/widget_4x2_min_width"
-    android:minResizeHeight="@dimen/widget_4x2_min_height"
+    android:minResizeWidth="@dimen/widget_4x2_min_resize_width"
+    android:minResizeHeight="@dimen/widget_4x2_min_resize_height"
     android:previewImage="@drawable/widget_preview"
     android:previewLayout="@layout/widget_preview"
     android:resizeMode="horizontal|vertical"
-    android:targetCellWidth="4"
-    android:targetCellHeight="2"
     android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen" />

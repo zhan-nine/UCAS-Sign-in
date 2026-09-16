@@ -101,6 +101,17 @@ class CourseRepository(
         return nowMs >= begin - QingxinApiService.SIGN_WINDOW_LEAD_MS && nowMs < end
     }
 
+    /**
+     * 只读今日本地缓存，**不走网络**。
+     * 供后台自动签到复用已有数据，避免每次唤醒都发请求。
+     */
+    fun cachedToday(
+        studentNo: String,
+        date: LocalDate = LocalDate.now(ZONE),
+    ): CourseQueryResult? = runCatching {
+        if (studentNo.isBlank()) null else readCache(studentNo, date.format(DAY_FMT))
+    }.getOrNull()
+
     /** 当前课窗口 = 开课前 25 分钟至下课前（含提前显示）。 */
     fun isCurrentCourse(course: Course, nowMs: Long): Boolean = isWithinQrLockWindow(course, nowMs)
 

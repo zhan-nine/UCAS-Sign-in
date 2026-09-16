@@ -6,7 +6,22 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!--
+      守护服务使用 specialUse 而不是 dataSync：
+      · Android 15 起 dataSync 前台服务有 24 小时共 6 小时配额，撑不住常驻通知；
+      · Android 15 起 BOOT_COMPLETED 禁止启动 dataSync 类型前台服务（specialUse 不受限）。
+      保留 FOREGROUND_SERVICE_DATA_SYNC 仅因 androidx.work 合并清单时可能声明它。
+    -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!--
+      省电豁免：直接弹「忽略电池优化」授权框。自动签到要在后台准时执行，
+      未豁免时会被 App Standby 分桶限制闹钟频次（Rare 桶每窗口仅 1 次）。
+      本应用走 GitHub 侧载分发，不涉及 Google Play 对该权限的政策限制。
+    -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- 精确闹钟：让随机签到时刻不被 Doze 推迟；被撤销时自动降级为非精确闹钟。 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:name=".QingxinApp"
@@ -53,7 +68,7 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/today_course_widget_info" />
-            <!-- 小米 Widget 标识：负一屏/桌面拖拽与曝光刷新能力 -->
+            <!-- 小米 Widget 标识：负一屏/桌面拖拽与曝光刷新能力；其他 ROM 会忽略 -->
             <meta-data
                 android:name="miuiWidget"
                 android:value="true" />
@@ -65,12 +80,12 @@
                 android:value="10000" />
         </receiver>
 
-        <!-- 2×2（与 4×2/4×4 同 label，详情页聚合） -->
+        <!-- 2×2：独立 label，避免 ColorOS Shelf 把三种规格合并/隐藏 -->
         <receiver
             android:name=".widget.TodayCourseCompactWidgetReceiver"
             android:enabled="true"
             android:exported="true"
-            android:label="@string/widget_label">
+            android:label="@string/widget_label_compact">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="miui.appwidget.action.APPWIDGET_UPDATE" />
@@ -98,7 +113,7 @@
             android:name=".widget.TodayCourseTallWidgetReceiver"
             android:enabled="true"
             android:exported="true"
-            android:label="@string/widget_label">
+            android:label="@string/widget_label_tall">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="miui.appwidget.action.APPWIDGET_UPDATE" />
@@ -160,9 +175,29 @@
             android:enabled="true"
             android:exported="false" />
 
+        <!-- requestPinAppWidget 成功回调；ColorOS 部分版本不弹确认框就直接添加 -->
+        <receiver
+            android:name=".widget.WidgetPinnedReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.ucas.qingxin.signin.action.WIDGET_PINNED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 自动签到：每节课 1 个精确闹钟（显式 PendingIntent，无需 intent-filter） -->
+        <receiver
+            android:name=".attendance.AutoSignAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
         <service
-            android:name=".attendance.AttendanceForegroundService"
+            android:name=".attendance.AttendanceDaemonService"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="scheduled_auto_checkin_daemon" />
+        </service>
     </application>
 </manifest>
