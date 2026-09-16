@@ -129,6 +129,37 @@
             </intent-filter>
         </receiver>
 
+        <!--
+          宿主环境变化 → 重绘小部件 + 重排边界闹钟。
+          这些广播都在 Android 隐式广播豁免名单中，可安全静态注册；
+          androidx.work 的 RescheduleReceiver 同样以 exported=false 接收
+          BOOT_COMPLETED，因此这里也用 false 更安全。
+        -->
+        <receiver
+            android:name=".widget.WidgetHostEventReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+          边界闹钟：在每节课的「开课前 25 分钟 / 上课 / 下课」以及跨天时刻更新，
+          使内容在语义变化的那一刻刷新，而不是等下一个 15 分钟周期。
+          使用显式 PendingIntent，无需 intent-filter。
+        -->
+        <receiver
+            android:name=".widget.WidgetAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
         <service
             android:name=".attendance.AttendanceForegroundService"
             android:exported="false"

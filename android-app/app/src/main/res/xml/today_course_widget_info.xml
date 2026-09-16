@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  跨安卓 4×2 主卡：
-  min 250×110（AOSP 格数公式）+ targetCell 4×2（API 31+）
-  updatePeriodMillis=30min：非小米系统的兜底刷新；小米另有曝光刷新
+  4×2 主卡 · 基础版（API 30 及以下 / 厂商回移启动器）
+  - 只声明 minWidth/minHeight：AOSP 官方「格数换 dp」公式 minSize ≈ 70×n − 30
+  - 不写 targetCellWidth/Height：ColorOS 等启动器会优先读取该字段，
+    Android 12 之前不认识时会退化成 0，导致小部件被判定为「零尺寸」而不显示
+  - updatePeriodMillis=1800000（系统下限 30 分钟）：这是**唯一**不依赖本应用
+    进程存活的标准刷新通道，由宿主定期推 ACTION_APPWIDGET_UPDATE。
+    更细的刷新由 WidgetRefreshWorker 里的「边界闹钟 + 进程内定时器 + WorkManager」
+    负责，二者互补而非二选一。
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_description"
@@ -12,9 +17,6 @@
     android:minResizeWidth="@dimen/widget_4x2_min_width"
     android:minResizeHeight="@dimen/widget_4x2_min_height"
     android:previewImage="@drawable/widget_preview"
-    android:previewLayout="@layout/widget_preview"
     android:resizeMode="horizontal|vertical"
-    android:targetCellWidth="4"
-    android:targetCellHeight="2"
     android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen" />

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  4×2 主卡 · Android 12+（API 31+）
+  - targetCell*：官方在 API 31+ 的首选尺寸声明，锁定 4×2 格
+  - maxResize*：允许用户放大，避免被启动器限制成「不可缩放」
+  - previewLayout：部分启动器（OriginOS / HarmonyOS）优先用真实布局做预览
+  - 与基础版共用 minWidth/minHeight，保证换算出的格数一致（4 列 = 250dp）
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/widget_loading"
+    android:maxResizeWidth="@dimen/widget_4x2_max_width"
+    android:maxResizeHeight="@dimen/widget_4x2_max_height"
+    android:minWidth="@dimen/widget_4x2_min_width"
+    android:minHeight="@dimen/widget_4x2_min_height"
+    android:minResizeWidth="@dimen/widget_4x2_min_width"
+    android:minResizeHeight="@dimen/widget_4x2_min_height"
+    android:previewImage="@drawable/widget_preview"
+    android:previewLayout="@layout/widget_preview"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />

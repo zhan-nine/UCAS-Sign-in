@@ -2,7 +2,7 @@ NOTICE
 ======
 
 本项目（**UCAS-Sign-in**）在开发中参考并使用了以下开源项目的思路、接口约定
-与/或实现片段。根据 AGPL-3.0 的要求，特此声明：
+与/或实现片段。根据 AGPL-3.0 及 LGPL-3.0 的要求，特此声明：
 
 --------------------------------------------------------------------------------
 Upstream project
@@ -20,15 +20,86 @@ Copyright notices from the upstream project, if any, are retained to the extent
 applicable. This combined work is distributed under the same AGPL-3.0 terms.
 
 --------------------------------------------------------------------------------
+Third-party components / 第三方组件
+--------------------------------------------------------------------------------
+
+### 1. Breezy Weather — 桌面小部件尺寸自适应
+
+  Name:        Breezy Weather
+  Copyright:   Breezy Weather contributors
+  Repository:  https://github.com/breezy-weather/breezy-weather
+  License:     GNU Lesser General Public License v3.0 (LGPL-3.0)
+  License text: ./LICENSES/LGPL-3.0.txt
+
+**使用范围**：仅用于桌面小部件的**尺寸自适应**逻辑。
+
+  Source file(s) in this project (LGPL-3.0):
+
+    android-app/app/src/main/java/com/ucas/qingxin/signin/widget/WidgetSizeCompat.kt
+
+  Adapted from:
+
+    app/src/main/kotlin/org/breezyweather/remoteviews/common/WidgetSizeUtils.kt
+    (function `initializeRemoteViews`, and the OPTION_APPWIDGET_SIZES /
+     OPTION_APPWIDGET_MIN|MAX_WIDTH|HEIGHT portrait-landscape pairing scheme)
+
+**改动说明**（依据 LGPL-3.0 第 2 条，修改版本须显著标注为与原版不同）：
+
+  - 2026-09-16：改编为 Kotlin `internal object`；回调参数由 Breezy Weather 的
+    `WidgetSize` 改为本项目的 `WidgetDpSize`；移除了 Breezy Weather 特有的
+    依赖与类型；补充了尺寸缺失时的兜底常量与异常保护。
+  - 本文件**不是** Breezy Weather 的官方发行版本，本项目与 Breezy Weather
+    项目及其贡献者无任何隶属、赞助或背书关系。
+  - “Breezy Weather”名称及其标识归其贡献者所有，本项目未使用其商标、名称或
+    图标进行宣传或暗示关联。
+
+依据 LGPL-3.0 第 4 条，上述文件所属的完整对应源码（Minimal Corresponding
+Source）即为本仓库中的该文件本身；本仓库公开可获取，满足提供源码的要求。
+
+### 2. Android Open Source Project / Android 开发者文档 — 规格参考
+
+  Name:       Android Open Source Project、Android Developers 文档
+  Repository: https://developer.android.com/develop/ui/views/appwidgets/layouts
+  License:    Apache License 2.0（代码示例）/ CC BY 2.5（文档正文）
+
+**使用范围**：仅作为**规格与设计参考**，未直接复制代码。
+
+  - `minSize ≈ 70×n − 30` 的格数↔dp 换算经验公式；
+  - `targetCellWidth` / `targetCellHeight` 与 `minWidth` / `minHeight` 的
+    版本分工（API 31+ 与 API 30 及以下的资源拆分方式）；
+  - 官方建议：需要可靠定时刷新时应将 `updatePeriodMillis` 设为 0 并改用
+    `WorkManager`。
+
+参考实现见本仓库 `android-app/app/src/main/res/xml/` 与 `res/xml-v31/` 下的
+provider 声明，以及 `widget/WidgetRefreshWorker.kt`。这些文件为本项目原创代码。
+
+### 3. 其他参考（未使用其代码）
+
+以下资料仅用于**调研厂商 ROM 行为与绕行方案**，本项目未复制其任何代码：
+
+  - OPPO / OnePlus 社区关于 ColorOS / OxygenOS 16 小部件选择器缺陷的公开讨论；
+  - Stack Overflow 关于华为 / vivo 启动器 `requestPinAppWidget` 不生效的讨论；
+  - isene/nomad 项目关于 ColorOS 16 破坏 `ACTION_APPWIDGET_PICK` 的公开提交说明。
+
+--------------------------------------------------------------------------------
 License of this repository
 --------------------------------------------------------------------------------
+
+  本仓库整体按 **GNU Affero General Public License v3.0 (AGPL-3.0)** 授权，
+  但下列文件为例外，按其文件头声明采用 **LGPL-3.0**：
+
+      android-app/app/src/main/java/com/ucas/qingxin/signin/widget/WidgetSizeCompat.kt
+
+  LGPL-3.0 与 AGPL-3.0 兼容：LGPL-3.0 第 4 条允许将 LGPL 代码与应用组合，
+  并以 GPL-3.0 系（含 AGPL-3.0）条款分发组合作品。
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU Affero General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
 
-  See the file LICENSE for the full text of the AGPL-3.0.
+  See the file LICENSE for the full text of the AGPL-3.0, and
+  LICENSES/LGPL-3.0.txt for the full text of the LGPL-3.0.
 
   Corresponding Source for binaries (including APKs) is intended to be available
   from this project's public GitHub repository.

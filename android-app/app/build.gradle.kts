@@ -21,8 +21,8 @@ android {
         applicationId = "com.ucas.qingxin.signin"
         minSdk = 26
         targetSdk = 35
-        versionCode = 21
-        versionName = "1.1.8"
+        versionCode = 23
+        versionName = "1.1.10"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -70,6 +70,28 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+}
+
+/**
+ * 许可证合规：把仓库根目录的第三方声明与许可证全文，在构建时同步进 APK 的
+ * `assets/licenses/`，确保每个分发出去的二进制都**自带**其适用的许可证副本
+ * （AGPL-3.0 / LGPL-3.0 的要求）。用构建任务生成而非手工拷贝，避免两处漂移。
+ */
+val repoRoot: File = rootProject.projectDir.parentFile
+val licensesAssetsRoot = layout.buildDirectory.dir("generated/licenses")
+
+val syncLicenses by tasks.registering(Copy::class) {
+    from(repoRoot.resolve("NOTICE")) { rename { "NOTICE.txt" } }
+    from(repoRoot.resolve("LICENSES/AGPL-3.0.txt"))
+    from(repoRoot.resolve("LICENSES/LGPL-3.0.txt"))
+    // assets 源目录即 assets/ 根，因此放进子目录以得到 assets/licenses/xxx.txt
+    into(licensesAssetsRoot.map { it.dir("licenses") })
+}
+
+android.sourceSets.getByName("main").assets.srcDir(licensesAssetsRoot)
+
+tasks.matching { it.name.startsWith("pre") && it.name.endsWith("Build") }.configureEach {
+    dependsOn(syncLicenses)
 }
 
 dependencies {

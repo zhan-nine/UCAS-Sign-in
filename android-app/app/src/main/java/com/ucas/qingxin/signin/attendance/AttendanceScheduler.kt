@@ -60,7 +60,8 @@ class AutoSignWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
-        val app = applicationContext as QingxinApp
+        val app = applicationContext as? QingxinApp ?: return Result.success()
+        if (!app.isReady) return Result.success()
         val settings = app.attendanceScheduler.getSettings()
         if (!settings.autoSignEnabled) return Result.success()
         if (!app.authRepository.isLoggedIn()) {

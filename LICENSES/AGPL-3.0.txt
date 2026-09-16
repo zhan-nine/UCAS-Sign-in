@@ -1,34 +1,3 @@
-UCAS-Sign-in licensing summary
-==============================
-
-  Copyright (C) 2026 UCAS-Sign-in contributors
-
-  This repository is distributed under the **GNU Affero General Public
-  License v3.0 (AGPL-3.0)**, whose full text follows below.
-
-  EXCEPTION — one file is licensed under the GNU Lesser General Public
-  License v3.0 (LGPL-3.0) because it contains code adapted from
-  Breezy Weather:
-
-      android-app/app/src/main/java/com/ucas/qingxin/signin/widget/WidgetSizeCompat.kt
-
-  Third-party components, copyright holders, source of each adapted file,
-  a description of the modifications, and the applicable license texts are
-  documented in the following files:
-
-      NOTICE                  — 第三方组件声明（必读）
-      LICENSES/LGPL-3.0.txt   — LGPL-3.0 完整文本
-      LICENSES/AGPL-3.0.txt   — AGPL-3.0 完整文本（与下方正文一致）
-
-  LGPL-3.0 is compatible with AGPL-3.0: section 4 of the LGPL-3.0 permits
-  combining the Library with an Application and conveying the combined
-  work under the terms of the GPL-3.0 family, which includes the AGPL-3.0.
-
-  --------------------------------------------------------------------------
-  The verbatim text of the GNU Affero General Public License v3.0 follows.
-  --------------------------------------------------------------------------
-
-
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
 

@@ -22,6 +22,43 @@
     <string name="widget_sign">一键签到</string>
     <string name="widget_sign_short">签到</string>
     <string name="widget_open_app">打开</string>
+
+    <!-- 小部件状态文案 -->
+    <string name="widget_need_login">请先打开 App 登录</string>
+    <string name="widget_open_app_hint">打开 App 查看今日课程与签到</string>
+    <string name="widget_no_course">今日暂无课程</string>
+    <string name="widget_no_course_cached">（缓存）暂无课程</string>
+    <string name="widget_syncing">正在同步课程…</string>
+    <string name="widget_no_current">暂无当前课</string>
+    <string name="widget_next">下一节</string>
+    <string name="widget_current">当前</string>
+    <string name="widget_course_done">今日课程已结束</string>
+    <string name="widget_not_started">未到签到时间</string>
+    <string name="widget_signed">已签到</string>
+    <string name="widget_can_sign">可以签到</string>
+    <string name="widget_waiting_sign">等待签到</string>
+    <string name="widget_signed_short">已签</string>
+    <string name="widget_sign_unavailable">暂不可签</string>
+
+    <!-- 跨厂商固定小部件 -->
+    <string name="widget_pin_launcher_unsupported">当前桌面（华为 / 荣耀 / vivo 等）不支持应用内直接添加，请按下方步骤手动添加。</string>
+    <string name="widget_pin_size_title">选择规格添加到桌面</string>
+    <string name="widget_pin_guide">查看手动添加步骤</string>
+    <string name="widget_pin_guide_title">手动添加小部件</string>
+    <string name="widget_pin_guide_close">知道了</string>
+    <string name="widget_pin_detected_launcher">当前桌面：%1$s</string>
+    <string name="widget_guide_xiaomi">小米 / HyperOS：\n1) 长按桌面空白处 → 添加小部件 → 搜索「轻新签到」；\n2) 负一屏：左滑到负一屏 → 点右上角「+ / 编辑」→ 添加小部件；\n3) 若长按无反应，先卸载“桌面”更新或在应用信息里允许「创建桌面快捷方式」。</string>
+    <string name="widget_guide_coloros">OPPO / 一加 / realme（ColorOS 16）：\n1) 长按桌面空白处 → 小部件 → 搜索「轻新签到」；\n2) 若「小部件」入口点了没反应（ColorOS 16 已知问题）：设置 → 应用 → 应用管理 → 右上角「显示系统程序」→ 搜索 Shelf → 启用；\n3) 或先临时停用 Shelf，用旧版选择器添加后再启用。</string>
+    <string name="widget_guide_originos">vivo / iQOO（OriginOS）：\n1) 长按桌面空白处 → 原子组件 / 小部件 → 搜索「轻新签到」；\n2) 若列表为空，请在桌面设置中开启「允许添加小部件」，并为本应用开启「创建桌面快捷方式」。</string>
+    <string name="widget_guide_harmony">华为 / 荣耀（HarmonyOS、EMUI）：\n1) 双指捏合桌面 → 窗口小工具 → 搜索「轻新签到」；\n2) 若没有该入口，请先在应用信息中开启「创建桌面快捷方式」。</string>
+    <string name="widget_guide_samsung">三星 One UI：长按桌面空白处 → 小组件 → 搜索「轻新签到」。</string>
+    <string name="widget_guide_aosp">原生 / Pixel / 其他启动器：长按桌面空白处 → 小部件（Widgets）→ 搜索「轻新签到」。\n部分第三方启动器（Nova、Niagara 等）路径为「长按 → 添加 → 小部件」。</string>
+
     <string name="channel_attendance">签到通知</string>
     <string name="channel_attendance_desc">上课提醒与签到结果</string>
+
+    <!-- 开源许可 -->
+    <string name="license_entry">开源许可与第三方组件</string>
+    <string name="license_summary">本应用（UCAS-Sign-in）整体按 GNU AGPL-3.0 授权。\n\n第三方组件：\n• UCAS-Course-Sign-in（作者 lccipher，AGPL-3.0）— 课程查询与签到流程的上游实现。\n• Breezy Weather（贡献者版权所有，LGPL-3.0）— 桌面小部件尺寸自适应逻辑，见 widget/WidgetSizeCompat.kt（该文件按 LGPL-3.0 授权）。\n• Android Open Source Project / Android 开发者文档 — 小部件规格参考（未复制代码）。\n\n完整许可证文本与本声明已随安装包一同分发：assets/licenses/ 下包含 NOTICE.txt、AGPL-3.0.txt、LGPL-3.0.txt，仓库根目录另有 NOTICE、LICENSE 与 LICENSES/。</string>
+    <string name="license_close">关闭</string>
 </resources>

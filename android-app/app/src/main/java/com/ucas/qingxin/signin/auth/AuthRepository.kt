@@ -14,7 +14,9 @@ class AuthRepository(
     private val store: SecureCredentialStore,
 ) {
     private val mutex = Mutex()
-    private val _session = MutableStateFlow(store.getSession())
+
+    // 构造期绝不抛异常：Keystore 异常时退化为「未登录」，由用户重新登录即可恢复。
+    private val _session = MutableStateFlow(runCatching { store.getSession() }.getOrNull())
     val session: StateFlow<SchoolSession?> = _session.asStateFlow()
 
     fun isLoggedIn(): Boolean = _session.value != null

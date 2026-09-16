@@ -1,17 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+   initialLayout：宿主在收到第一次 RemoteViews 之前展示的内容。
+   刻意做成**静态且可用**（而不是转圈动画）：
+   部分厂商 ROM 在应用被冻结 / 省电限制时不会及时回调 onUpdate，
+   若初始布局只是「加载中…」，用户会认为小部件坏了。
+   根节点使用 @android:id/background，让 HyperOS 套用统一圆角与安全边距。
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
-    android:gravity="center"
+    android:gravity="center_vertical"
     android:orientation="vertical"
     android:padding="@dimen/widget_pad">
 
     <TextView
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/widget_loading"
-        android:textColor="#5B6B63"
-        android:textSize="13sp" />
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="@string/widget_title_today"
+        android:textColor="#16362B"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="6dp"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:gravity="top"
+        android:maxLines="3"
+        android:text="@string/widget_open_app_hint"
+        android:textColor="#3E5249"
+        android:textSize="12sp" />
 </LinearLayout>

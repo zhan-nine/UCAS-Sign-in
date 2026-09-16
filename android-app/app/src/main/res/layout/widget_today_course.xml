@@ -47,7 +47,7 @@
         android:ellipsize="end"
         android:gravity="top"
         android:lineSpacingExtra="2dp"
-        android:maxLines="3"
+        android:maxLines="9"
         android:textColor="#3E5249"
         android:textSize="12sp" />
 

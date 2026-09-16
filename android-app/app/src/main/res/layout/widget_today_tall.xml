@@ -52,7 +52,7 @@
         android:layout_weight="1"
         android:ellipsize="end"
         android:lineSpacingExtra="3dp"
-        android:maxLines="8"
+        android:maxLines="12"
         android:textColor="#3E5249"
         android:textSize="12sp" />
 

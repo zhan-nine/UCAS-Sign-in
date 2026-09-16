@@ -50,7 +50,16 @@ data class AppUiState(
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as QingxinApp
-    private val _ui = MutableStateFlow(AppUiState(settings = app.attendanceScheduler.getSettings()))
+    private val _ui = MutableStateFlow(
+        if (app.isReady) {
+            AppUiState(settings = app.attendanceScheduler.getSettings())
+        } else {
+            AppUiState(
+                restoring = false,
+                error = "应用初始化失败（可能是系统密钥库异常），请重启应用后再试",
+            )
+        },
+    )
     val ui: StateFlow<AppUiState> = _ui.asStateFlow()
     private var qrRefreshJob: Job? = null
     private var qrTickJob: Job? = null
@@ -63,30 +72,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var manualQrCourseId: String? = null
 
     init {
-        viewModelScope.launch {
-            val session = app.authRepository.restore()
-            if (session != null) {
-                _ui.update {
-                    it.copy(
-                        restoring = false,
-                        authenticated = true,
-                        studentNo = session.studentNo,
-                        studentNoInput = app.credentialStore.getLoginId().orEmpty().ifBlank { session.studentNo },
-                    )
-                }
-                refreshCourses()
-                startQrLoopIfNeeded()
-            } else {
-                _ui.update {
-                    it.copy(
-                        restoring = false,
-                        authenticated = false,
-                        studentNoInput = app.credentialStore.getLoginId().orEmpty(),
-                    )
+        if (app.isReady) {
+            viewModelScope.launch {
+                val session = app.authRepository.restore()
+                if (session != null) {
+                    _ui.update {
+                        it.copy(
+                            restoring = false,
+                            authenticated = true,
+                            studentNo = session.studentNo,
+                            studentNoInput = app.credentialStore.getLoginId().orEmpty()
+                                .ifBlank { session.studentNo },
+                        )
+                    }
+                    refreshCourses()
+                    startQrLoopIfNeeded()
+                } else {
+                    _ui.update {
+                        it.copy(
+                            restoring = false,
+                            authenticated = false,
+                            studentNoInput = app.credentialStore.getLoginId().orEmpty(),
+                        )
+                    }
                 }
             }
+            startQrTicker()
         }
-        startQrTicker()
     }
 
     fun onStudentNoChange(v: String) = _ui.update { it.copy(studentNoInput = v) }
@@ -128,6 +140,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         app.qrTimeline.clear()
         app.courseRepository.clearAccountCache(studentNo)
         app.authRepository.logout()
+        // 小部件快照是明文缓存，退出登录时必须清空，避免下一位使用者看到前一账号的课表。
+        com.ucas.qingxin.signin.widget.WidgetSnapshotStore.of(getApplication()).clearAll()
         _ui.value = AppUiState(
             restoring = false,
             authenticated = false,
@@ -141,6 +155,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _ui.update { it.copy(busy = true, error = "", message = "正在更新课程…") }
             try {
                 val result = app.courseRepository.loadToday()
+                // 记录抓取时间，避免小部件定时器紧接着又抓一次同样的数据。
+                com.ucas.qingxin.signin.widget.WidgetRefreshScheduler.markDataFetched(getApplication())
                 val displayNow = System.currentTimeMillis()
                 val schoolNow = app.qrTimeline.currentSchoolTimeOrNull()
                     ?: runCatching { app.qrTimeline.syncClock().schoolNowMs }.getOrNull()

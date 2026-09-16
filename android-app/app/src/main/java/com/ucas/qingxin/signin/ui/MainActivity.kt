@@ -31,6 +31,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -72,6 +73,7 @@ import com.ucas.qingxin.signin.data.AttendanceUiStatus
 import com.ucas.qingxin.signin.data.Course
 import com.ucas.qingxin.signin.util.CourseTimeDisplay
 import com.ucas.qingxin.signin.widget.TodayCourseWidgetReceiver
+import com.ucas.qingxin.signin.widget.WidgetPinHelper
 
 private enum class AppScreen { Home, Settings }
 
@@ -373,6 +375,8 @@ private fun SettingsScreen(
             }
         }
         item {
+            val context = LocalContext.current
+            var showGuide by remember { mutableStateOf(false) }
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(16.dp),
@@ -386,23 +390,53 @@ private fun SettingsScreen(
                         fontWeight = FontWeight.Medium,
                     )
                     Text(
-                        "支持主流 Android 启动器（含小米 HyperOS 负一屏）。规格：2×2 / 4×2 / 4×4。",
+                        stringResource(
+                            R.string.widget_pin_detected_launcher,
+                            WidgetPinHelper.launcherLabel(context),
+                        ),
                         fontSize = 12.sp,
                         color = Color(0xFF5B6B63),
                     )
+                    Text(
+                        "三种规格在桌面与负一屏通用。若系统选择器打不开（ColorOS 16 已知问题），" +
+                            "用下面的按钮直接添加。",
+                        fontSize = 12.sp,
+                        color = Color(0xFF5B6B63),
+                    )
+                    Text(
+                        stringResource(R.string.widget_pin_size_title),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                    )
+                    WidgetPinHelper.Spec.values().forEach { spec ->
+                        OutlinedButton(
+                            onClick = { activity?.let { WidgetPinHelper.requestPin(it, spec) } },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("${spec.sizeLabel} · ${stringResource(spec.labelRes)}") }
+                    }
                     OutlinedButton(
-                        onClick = { activity?.let { TodayCourseWidgetReceiver.requestPin(it) } },
+                        onClick = { showGuide = true },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text(stringResource(R.string.widget_pin)) }
+                    ) { Text(stringResource(R.string.widget_pin_guide)) }
                     OutlinedButton(
                         onClick = {
-                            activity?.let {
-                                TodayCourseWidgetReceiver.openAppDetailsForShortcutPermission(it)
-                            }
+                            activity?.let { WidgetPinHelper.openAppDetails(it) }
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text(stringResource(R.string.widget_pin_open_permission)) }
                 }
+            }
+            if (showGuide) {
+                AlertDialog(
+                    onDismissRequest = { showGuide = false },
+                    confirmButton = {
+                        TextButton(onClick = { showGuide = false }) {
+                            Text(stringResource(R.string.widget_pin_guide_close))
+                        }
+                    },
+                    title = { Text(stringResource(R.string.widget_pin_guide_title)) },
+                    text = { Text(WidgetPinHelper.manualGuide(context)) },
+                )
             }
         }
         item {
@@ -424,6 +458,25 @@ private fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("退出登录") }
                 }
+            }
+        }
+        item {
+            var showLicense by remember { mutableStateOf(false) }
+            OutlinedButton(
+                onClick = { showLicense = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.license_entry)) }
+            if (showLicense) {
+                AlertDialog(
+                    onDismissRequest = { showLicense = false },
+                    confirmButton = {
+                        TextButton(onClick = { showLicense = false }) {
+                            Text(stringResource(R.string.license_close))
+                        }
+                    },
+                    title = { Text(stringResource(R.string.license_entry)) },
+                    text = { Text(stringResource(R.string.license_summary), fontSize = 12.sp) },
+                )
             }
         }
     }
