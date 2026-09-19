@@ -1,5 +1,6 @@
 package com.ucas.qingxin.signin.network
 
+import com.ucas.qingxin.signin.BuildConfig
 import com.ucas.qingxin.signin.data.Course
 import com.ucas.qingxin.signin.data.CourseQueryResult
 import com.ucas.qingxin.signin.data.SchoolSession
@@ -25,11 +26,21 @@ class QingxinApiService(
     private val client: OkHttpClient = defaultClient(),
 ) {
     companion object {
-        const val BASE_URL = "https://iclass.ucas.edu.cn:8181/app/"
-        /** Server-side verification URL template embedded in login POST; client itself uses HTTPS. */
-        const val MOBILE_CHECK_TEMPLATE =
-            "http://iclass.ucas.edu.cn:88/ve/webservices/mobileCheck.shtml" +
-                "?method=mobileLogin&username=\${0}&password=\${1}&lx=\${2}"
+        /**
+         * 后端端点一律来自 [BuildConfig]（由本地 local.properties 注入），
+         * **不得在此硬编码主机或端口**：仓库为公开仓库，端点不应入库。
+         */
+        val BASE_URL: String = BuildConfig.API_BASE_URL
+
+        /** 登录请求体内嵌入的校方校验地址模板（由本地配置注入）。 */
+        val MOBILE_CHECK_TEMPLATE: String = BuildConfig.VERIFY_URL_TEMPLATE
+
+        /** 7 位节次 ID（`courseSchedId`）。 */
+        private val SEVEN_DIGIT_ID = Regex("""\d{7}""")
+
+        /** 32 位课表 UUID（`timeTableId`，比较前会先去掉连字符）。 */
+        private val HEX32_ID = Regex("""[0-9a-fA-F]{32}""")
+
         const val USER_AGENT = "student_5.0.1.2_android_12_20_100000000000000_110000"
         const val USER_AGENT_LOGIN = "student_5.0.1.2_android_12_20__110000"
 
@@ -39,6 +50,9 @@ class QingxinApiService(
         const val QR_REFRESH_CAP_MS = 5_000L
         /** 签到二维码自动锁定：开课前 25 分钟至下课前。 */
         const val SIGN_WINDOW_LEAD_MS = 25L * 60L * 1000L
+
+        /** `yyyyMMdd` 的长度，用于判定日期字段是否可用。 */
+        private const val DAY_KEY_LENGTH = 8
 
         fun defaultClient(): OkHttpClient =
             OkHttpClient.Builder()
@@ -148,17 +162,64 @@ class QingxinApiService(
         }
 
     /**
+     * 抓取 [anchorDateStr] 所在周的**全部**课程（所有日期），用于讲座的多日扫描。
+     *
+     * 讲座散布在多个日期上，逐日查询代价过高；周课表一次请求覆盖整周，
+     * 调用方再按日期范围自行裁剪（见 `LectureRepository.loadRange`）。
+     * [Course.day] 取各天的 `dateStr` 并统一成 `yyyyMMdd`，
+     * 使调用方不必再关心学校返回的是 `2026-09-15` 还是 `20260915`。
+     */
+    suspend fun getWeekCourses(session: SchoolSession, anchorDateStr: String): List<Course> =
+        withContext(Dispatchers.IO) {
+            val form = FormBody.Builder()
+                .add("id", session.userId)
+                .add("dateStr", anchorDateStr)
+                .build()
+            val json = executeJson(
+                requestBuilder("course/get_stu_course_sched_week.action", session)
+                    .post(form)
+                    .build(),
+            )
+            val result = json.optJSONArray("result")
+            // 本接口的 STATUS 约定在既有代码里并不一致（getTodayCourses 的分支把 STATUS=="0"
+            // 当作「无课表」而抛错）。这里改以「是否真的拿到 result 数组」为准：
+            // 只要有数据就解析，确实没有数据才按失败上报，
+            // 免得因状态码约定不清而丢掉本该展示的讲座或误报登录失效。
+            if (result == null) {
+                if (json.optString("STATUS") == "0") return@withContext emptyList()
+                throw ApiException("SCHEDULE_REJECTED", "学校暂未返回可用课表，请重新查询")
+            }
+            val out = ArrayList<Course>()
+            for (i in 0 until result.length()) {
+                val dayObj = result.optJSONObject(i) ?: continue
+                val dayKey = normalizeDayKey(dayObj.optString("dateStr"))
+                // 日期缺失或异常的整天都无法参与范围过滤，直接跳过而不是猜一个日期。
+                if (dayKey.length != DAY_KEY_LENGTH) continue
+                out += parseSchedArray(dayObj.optJSONArray("schedData"), dayKey)
+            }
+            out
+        }
+
+    /**
      * Confirmed one-click sign:
-     * GET course/stu_scan_sign.action?courseSchedId=&timestamp=&id=
+     * GET course/stu_scan_sign.action?<idParam>=&timestamp=&id=
      * Header sessionId required.
+     *
+     * @param courseIdOrUuid 7 位节次 ID（`courseSchedId`）**或** 32 位课表 UUID
+     *   （`timeTableId`）。学校这个接口对两种标识各有一个查询参数，参数名取决于
+     *   标识形态，因此这里统一接收「二选一」的原始输入，再按形态派发 ——
+     *   若只接受 `courseSchedId`，那些只有 UUID 的课程（以及手动录入 UUID 的讲座，
+     *   见 [com.ucas.qingxin.signin.ui.LectureViewModel.signManual]）会带着空参数
+     *   发出必然失败的请求。
      */
     suspend fun submitAttendance(
         session: SchoolSession,
-        courseSchedId: String,
+        courseIdOrUuid: String,
         schoolTimestampMs: Long,
     ): SignResult = withContext(Dispatchers.IO) {
+        val (idParam, idValue) = signIdParameter(courseIdOrUuid)
         val url = (BASE_URL + "course/stu_scan_sign.action").toHttpUrl().newBuilder()
-            .addQueryParameter("courseSchedId", courseSchedId)
+            .addQueryParameter(idParam, idValue)
             .addQueryParameter("timestamp", schoolTimestampMs.toString())
             .addQueryParameter("id", session.userId)
             .build()
@@ -177,20 +238,29 @@ class QingxinApiService(
 
     /** Build QR content URL exactly as original ez0.d(). */
     fun buildSignQrUrl(courseIdOrUuid: String, schoolTimestampMs: Long): String {
-        val trimmed = courseIdOrUuid.trim()
-        val compact = trimmed.replace("-", "")
-        val (param, value) = when {
-            Pattern.compile("[0-9]{7}").matcher(trimmed).matches() ->
-                "courseSchedId" to trimmed
-            Pattern.compile("[0-9a-fA-F]{32}").matcher(compact).matches() ->
-                "timeTableId" to compact.uppercase(Locale.ROOT)
-            else -> throw ApiException("COURSE_ID_INVALID", "请输入 7 位课程 ID 或 32 位 UUID")
-        }
+        val (param, value) = signIdParameter(courseIdOrUuid)
         return (BASE_URL + "course/stu_scan_sign.action").toHttpUrl().newBuilder()
             .addQueryParameter(param, value)
             .addQueryParameter("timestamp", schoolTimestampMs.toString())
             .build()
             .toString()
+    }
+
+    /**
+     * 「7 位节次 ID / 32 位课表 UUID」→ 学校接口的查询参数名与取值。
+     *
+     * 这是全项目**唯一**的标识形态判定点：一键签到（[submitAttendance]）与
+     * 二维码内容构造（[buildSignQrUrl]）都走这里，避免两处规则漂移 ——
+     * 一旦漂移，就会出现「扫同一个码能签、点按钮不能签」这类极难排查的问题。
+     */
+    private fun signIdParameter(courseIdOrUuid: String): Pair<String, String> {
+        val trimmed = courseIdOrUuid.trim()
+        val compact = trimmed.replace("-", "")
+        return when {
+            SEVEN_DIGIT_ID.matches(trimmed) -> "courseSchedId" to trimmed
+            HEX32_ID.matches(compact) -> "timeTableId" to compact.uppercase(Locale.ROOT)
+            else -> throw ApiException("COURSE_ID_INVALID", "请输入 7 位课程 ID 或 32 位 UUID")
+        }
     }
 
     private fun parseSession(json: JSONObject): SchoolSession {
@@ -224,9 +294,30 @@ class QingxinApiService(
                 endTime = o.optString("classEndTime").trim(),
                 day = day,
                 signed = o.optString("signStatus") == "1",
+                // 课程层标识：讲座发现的回退阶梯与课程注册表桥接都依赖它们。
+                // 学校返回的可能是数字也可能是字符串，optString 一并接受。
+                courseId = o.optText("courseId"),
+                courseNum = o.optText("courseNum"),
             )
         }
         return out
+    }
+
+    /**
+     * 读取字符串字段，并把「显式 null / 缺失」统一成空串。
+     *
+     * 为什么不用裸 `optString`：学校偶尔把 `courseId` 这类字段发成 JSON `null`，
+     * 而 `optString` 会把它变成字面量 `"null"`，下游拿去做 id 匹配就会莫名其妙地对不上。
+     */
+    private fun JSONObject.optText(key: String): String {
+        val raw = optString(key).trim()
+        return if (raw == "null") "" else raw
+    }
+
+    /** `dateStr` 可能是 `yyyy-MM-dd` 或 `yyyyMMdd`，统一成 `yyyyMMdd` 供比较。 */
+    private fun normalizeDayKey(raw: String): String {
+        val d = raw.trim().replace("-", "").replace("/", "")
+        return if (d.length >= DAY_KEY_LENGTH) d.take(DAY_KEY_LENGTH) else d
     }
 
     private fun parseSignResult(json: JSONObject): SignResult {

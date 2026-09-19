@@ -212,7 +212,7 @@ internal object AutoSignEngine {
     /** 此刻「已经到达随机时刻、可以立刻尝试」的课（不产生任何网络请求）。 */
     fun dueNow(context: Context, app: QingxinApp, courses: List<Course>? = null): Course? {
         if (!app.isReady) return null
-        val list = courses ?: loadCoursesSync(app) ?: return null
+        val list = effectiveCourses(app, courses) ?: return null
         if (list.isEmpty()) return null
         val today = AutoSignRandomizer.todayKey()
         val now = System.currentTimeMillis()
@@ -234,7 +234,7 @@ internal object AutoSignEngine {
     /** 今日下一个待签课次（含已冻结的随机时刻）。用于排闹钟与守护服务计时。 */
     fun nextDue(app: QingxinApp, courses: List<Course>? = null): DueCourse? {
         if (!app.isReady) return null
-        val list = courses ?: loadCoursesSync(app) ?: return null
+        val list = effectiveCourses(app, courses) ?: return null
         if (list.isEmpty()) return null
         val today = AutoSignRandomizer.todayKey()
         val now = System.currentTimeMillis()
@@ -253,7 +253,7 @@ internal object AutoSignEngine {
         if (!runCatching { app.authRepository.isLoggedIn() }.getOrDefault(false)) {
             return context.getString(R.string.auto_sign_status_need_login)
         }
-        val list = courses ?: loadCoursesSync(app)
+        val list = effectiveCourses(app, courses)
             ?: return context.getString(R.string.auto_sign_status_waiting)
         if (list.isEmpty()) return context.getString(R.string.auto_sign_status_no_course)
         val next = nextDue(app, list)
@@ -424,24 +424,62 @@ internal object AutoSignEngine {
     /**
      * 取数闸门：本地数据够新就零网络。
      * @return null 表示「取不到数据」（网络失败且无缓存），调用方应重试。
+     *
+     * 三条返回路径都必须过 [exclude]：这是**唯一**同时覆盖实签（`runLocked`）
+     * 与闹钟排程（`nextDue`）的注入点。
      */
     private suspend fun loadCourses(context: Context, app: QingxinApp): List<Course>? {
         val today = AutoSignRandomizer.todayKey()
         val fresh = WidgetRefreshScheduler.lastDataDay(context) == today &&
             System.currentTimeMillis() - WidgetRefreshScheduler.lastDataAt(context) < CACHE_FRESH_MS
         if (fresh) {
-            app.courseRepository.courses.value?.let { return it.courses }
+            app.courseRepository.courses.value?.let { return exclude(app, it.courses) }
         }
         val studentNo = runCatching { app.authRepository.session.value?.studentNo }.getOrNull()
-        app.courseRepository.cachedToday(studentNo.orEmpty())?.let { return it.courses }
-        return runCatching { app.courseRepository.loadToday().courses }.getOrNull()
+        app.courseRepository.cachedToday(studentNo.orEmpty())?.let { return exclude(app, it.courses) }
+        return runCatching { app.courseRepository.loadToday().courses }.getOrNull()?.let {
+            exclude(app, it)
+        }
     }
 
-    /** 同步版本的只读读取（内存 → 本地缓存），绝不发网络。 */
+    /**
+     * 同步版本的只读读取（内存 → 本地缓存），绝不发网络。
+     *
+     * **刻意不过 [exclude]**：这是「原始课程」的取数函数，唯一的调用方是
+     * [effectiveCourses]，由后者统一过滤。若将来直接调用它，请自己补上排除判定，
+     * 否则被用户排除的课会重新出现在结果里。
+     */
     private fun loadCoursesSync(app: QingxinApp): List<Course>? {
         app.courseRepository.courses.value?.let { return it.courses }
         val studentNo = runCatching { app.authRepository.session.value?.studentNo }.getOrNull()
         return app.courseRepository.cachedToday(studentNo.orEmpty())?.courses
+    }
+
+    /**
+     * 解析课程来源并统一剔除「不打卡」的课程。
+     *
+     * 之所以把它单独抽成一个入口，而不是只在 [loadCourses] / [loadCoursesSync] 里过滤：
+     * `dueNow` / `nextDue` / `daemonStatusText` 都允许调用方**直接传入**一个课程列表
+     * （守护服务与设置页就是这么做的），那条路径会绕过取数函数。
+     * 过滤放在这里，三条查询入口与两条执行入口就都覆盖到了。
+     *
+     * 过滤失败（尚未初始化、prefs 异常）时返回**原始列表**：
+     * 宁可多签一节，也不能因为读排除表失败就整个自动签到罢工。
+     */
+    private fun effectiveCourses(app: QingxinApp, courses: List<Course>?): List<Course>? =
+        (courses ?: loadCoursesSync(app))?.let { exclude(app, it) }
+
+    /** 剔除用户标记为「今天不打卡 / 长期不打卡」的课程。见 [AutoSignExclusions]。 */
+    private fun exclude(app: QingxinApp, courses: List<Course>): List<Course> {
+        if (courses.isEmpty()) return courses
+        return runCatching {
+            val store = app.autoSignExclusionStore
+            AutoSignExclusions.filter(
+                courses = courses,
+                permanent = store.permanentKeys(),
+                todayOnly = store.todayKeys(AutoSignRandomizer.todayKey()),
+            )
+        }.getOrDefault(courses)
     }
 
     /** 学校时间：优先复用 30 秒 TTL 的校时样本，其次才真正请求。 */

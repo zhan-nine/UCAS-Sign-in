@@ -1,6 +1,7 @@
 package com.ucas.qingxin.signin.attendance
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -13,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.ucas.qingxin.signin.R
+import com.ucas.qingxin.signin.lecture.LectureNotice
 import com.ucas.qingxin.signin.ui.MainActivity
 import java.time.Instant
 import java.time.ZoneId
@@ -73,7 +75,12 @@ class AttendanceNotifier(private val context: Context) {
     /**
      * 更新常驻通知内容。
      * **内容未变化时直接返回**，不调用 `notify()` —— 避免通知栏与系统 UI 无意义重绘。
+     *
+     * 抑制 `MissingPermission`：通知权限由本类的 [canPost] 统一把关
+     * （API < 33 无需该权限，故 [canPost] 在低版本恒为 true），
+     * lint 无法跨方法识别这层检查，属已知假阳性。
      */
+    @SuppressLint("MissingPermission")
     fun updateDaemonStatus(text: String) {
         if (text == lastStatusText) return
         lastStatusText = text
@@ -133,8 +140,65 @@ class AttendanceNotifier(private val context: Context) {
         runCatching { NotificationManagerCompat.from(context).cancel(upcomingId(courseId)) }
     }
 
+    // ------------------------------------------------------------------ 讲座通知
+
+    /**
+     * 新讲座预告通知。
+     *
+     * 用会响铃的 [CHANNEL_ID] 而不是静默的状态渠道：人文讲座的预约名额通常先到先得，
+     * 「有新预告」这条信号只有及时看到才有价值，因此这里**故意打扰**用户一下。
+     *
+     * 一次刷新里出现的多条新预告**合并成一条**通知（而不是逐条推送）：
+     * 一次刷新顶多带出几条，合并后既不会刷屏，也不会漏掉「有新讲座」这个事实。
+     *
+     * @param fresh 本次新增的预告（调用方保证非空）。
+     */
+    fun notifyNewLectureNotice(fresh: List<LectureNotice>) {
+        if (fresh.isEmpty()) return
+        val head = fresh.first()
+        // 用「最新那条」的身份分配 id：同一场讲座重复出现时覆盖旧通知而不堆叠。
+        val id = noticeId(head.identityKey)
+        val title = if (fresh.size == 1) {
+            "${head.type.label} · 新预告"
+        } else {
+            "新讲座预告（${fresh.size} 条）"
+        }
+        val body = if (fresh.size == 1) {
+            head.sessionNo.ifBlank { head.title }
+        } else {
+            val names = fresh.take(3).joinToString("、") { it.type.label }
+            "$names 等 ${fresh.size} 条已发布，可查看详情"
+        }
+        show(id, title, body)
+    }
+
+    /**
+     * 哨兵发现的**新讲座场次**。
+     *
+     * 与 [notifyNewLectureNotice] 分开一个 id 段位并单独成一条：两者的来源与可信度
+     * 不同 —— 预告来自学院网站（有日期口径、内容权威），哨兵来自课程注册表
+     * （**只知道有这场、叫什么**，没有时间场地）。混成一条会让用户以为
+     * 哨兵那条也有完整信息。
+     *
+     * 同样用会响铃的渠道：讲座预约常先到先得，「更早发现」这件事本身就有价值
+     * （实测注册表可比公开源早数月）。
+     */
+    fun notifySentinelLectures(names: List<String>) {
+        if (names.isEmpty()) return
+        val title = if (names.size == 1) "发现新讲座" else "发现 ${names.size} 场新讲座"
+        val body = names.take(3).joinToString("；")
+        show(sentinelId(names.first()), title, body)
+    }
+
     // ------------------------------------------------------------------ 内部
 
+    /**
+     * 统一出口：所有会响铃的通知都经此处发出。
+     *
+     * 抑制 `MissingPermission`：权限检查在 [canPost] 里（见该方法的说明），
+     * lint 不做跨方法的数据流分析，因此需要在此显式声明是安全的。
+     */
+    @SuppressLint("MissingPermission")
     private fun show(id: Int, title: String, body: String) {
         if (!canPost()) return
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -219,5 +283,22 @@ class AttendanceNotifier(private val context: Context) {
 
         /** 同一门课的结果通知共用一个 id：重试/重复不会刷出多条。 */
         fun resultId(courseId: String): Int = 5100 + (courseId.hashCode().rem(500) + 500) % 500
+
+        /**
+         * 同一场讲座的新预告共用一个 id：重复出现时覆盖旧通知，不堆叠。
+         *
+         * 段位 6100–6599，避开手动路径 1001–1005、新预告汇总暂不占用其它段位、
+         * 守护通知 2001、自动签到前置提醒 4100–4599、自动签到结果 5100–5599。
+         */
+        fun noticeId(identityKey: String): Int =
+            6100 + (identityKey.hashCode().rem(500) + 500) % 500
+
+        /**
+         * 哨兵发现的讲座通知 id。
+         *
+         * 段位 6600–6999，与预告通知的 6100–6599 分界，避免两条通知互相覆盖。
+         */
+        fun sentinelId(seed: String): Int =
+            6600 + (seed.hashCode().rem(400) + 400) % 400
     }
 }

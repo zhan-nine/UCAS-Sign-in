@@ -15,6 +15,16 @@ data class Course(
     val endTime: String,
     val day: String,
     val signed: Boolean,
+    /**
+     * 课程层标识（与 [id] 的节次层 7 位编码不同）：`courseId` / `courseNum`。
+     *
+     * 学校课表接口一直会返回这两个字段，此前被丢弃。补抓它们用于：
+     * 1. 讲座发现的回退阶梯（节次缺失时仍有课程层标识可寻址）；
+     * 2. 与离线研究中的课程注册表做桥接对照。
+     * 均为可空默认，兼容既有构造点与本地缓存。
+     */
+    val courseId: String = "",
+    val courseNum: String = "",
 )
 
 data class CourseQueryResult(

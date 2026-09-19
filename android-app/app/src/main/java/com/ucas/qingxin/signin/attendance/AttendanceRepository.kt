@@ -78,7 +78,11 @@ class AttendanceRepository(
         if (course.signed) {
             return SignResult(SignOutcome.OUTSIDE_SIGN_WINDOW, "学校提示已签到，请刷新课程状态", "0", "0", "")
         }
-        inFlightCourseId = course.id
+        // 标识可以只有 UUID（课表里部分课程没有 7 位节次 ID；手动录入 UUID 亦然），
+        // 因此「本门课的唯一键」也要能退到 uuid —— 否则 inFlightCourseId 会落到空串，
+        // 而空串在 `!= null` 判定下同样算「占用中」，后续所有课程的签到都会被误拦。
+        val courseKey = course.id.ifBlank { course.uuid }
+        inFlightCourseId = courseKey
         try {
             var session = try {
                 auth.requireSession()
@@ -89,15 +93,15 @@ class AttendanceRepository(
                 auth.refreshSession()
             }
             // Manual one-click: do not hard-block on local window guess; backend is authority.
-            val courseKey = course.id.ifBlank { course.uuid }
+            // submitAttendance 会按标识形态选中 courseSchedId / timeTableId 参数。
             val qr = qrTimeline.refreshQr(courseKey)
             return try {
-                api.submitAttendance(session, course.id, qr.schoolTimestampMs)
+                api.submitAttendance(session, courseKey, qr.schoolTimestampMs)
             } catch (e: ApiException) {
                 if (e.code.startsWith("HTTP_") || e.message?.contains("登录") == true) {
                     session = auth.refreshSession()
                     val qr2 = qrTimeline.refreshQr(courseKey)
-                    api.submitAttendance(session, course.id, qr2.schoolTimestampMs)
+                    api.submitAttendance(session, courseKey, qr2.schoolTimestampMs)
                 } else {
                     throw e
                 }

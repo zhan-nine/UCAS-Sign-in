@@ -8,8 +8,6 @@ import com.ucas.qingxin.signin.network.QingxinApiService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.json.JSONArray
-import org.json.JSONObject
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -25,25 +23,101 @@ class CourseRepository(
     private val _courses = MutableStateFlow<CourseQueryResult?>(null)
     val courses: StateFlow<CourseQueryResult?> = _courses.asStateFlow()
 
+    /**
+     * 抓取「今天」的课表，并把它发布到 [courses]。
+     *
+     * 这是**唯一**会写 [courses] 的入口。签到二维码、桌面小部件、自动签到引擎
+     * 都直接消费这条 StateFlow，因此它必须始终是「今天」的课表 ——
+     * 一旦被别的日期污染，守护进程会拿另一天的课去签（见 [browseDay] 的说明）。
+     */
     suspend fun loadToday(date: LocalDate = LocalDate.now(ZONE)): CourseQueryResult {
+        val result = fetchDay(date)
+        _courses.value = result
+        return result
+    }
+
+    /**
+     * 抓取任意一天的课表，**只读浏览用**。
+     *
+     * ## 为什么不复用 [loadToday]
+     * [loadToday] 会把结果写进 [courses]，而那条 StateFlow 是「今天」的唯一真值源：
+     * - 桌面小部件按它渲染「今日课程」；
+     * - 自动签到引擎在本地数据新鲜时会直接取它，然后按今天的随机时刻去签。
+     *
+     * 若浏览「明天」也写进去，那么用户在 10 分钟新鲜窗口内切到别的日期看一眼课表，
+     * 守护进程下一次唤醒就会把**明天的课**当成今天的课去签到。因此这里的
+     * 「不写 [courses]」是硬约束，不是实现细节。
+     *
+     * 代价只是：浏览页与首页各持有自己那份列表（本来也应如此 —— 两处看的是不同日期）。
+     *
+     * 网络路径与今天完全一致（同一个接口、同一份本地缓存），因此缓存命中时
+     * 离线也能浏览之前看过的日期。
+     */
+    suspend fun browseDay(date: LocalDate): CourseQueryResult {
+        val result = fetchDay(date)
+        // 周课表回退时，网络层返回的是**整周**课程（对首页是合理的兜底：至少还能
+        // 看到点东西），但那对「按日期看课表」是错的 —— 标题写着 9 月 20 日，
+        // 列表却是整周的课。这里裁回请求的那一天；结果为空就说明那天真的没课，
+        // 因为周数据已经权威地回答了这个问题，不需要再猜。
+        val onDay = dedupe(coursesOn(result, date.format(DAY_FMT)))
+        return result.copy(
+            courses = onDay,
+            // 空结果不给文案：上层返回的句子是写给首页的（会提「切换学号」），
+            // 而这里下面那张占位卡片已经明确说了「这天没有课程」，再说一遍是噪音。
+            message = if (onDay.isEmpty()) "" else result.message,
+        )
+    }
+
+    /**
+     * 去掉完全相同的课程行。
+     *
+     * 界面用「节次 id + 日期 + 开始时间」作 `LazyColumn` 的 key，重复行会让
+     * 同一个 key 出现两次并**直接抛异常闪退**（项目此前就因重复 key 崩过一次）。
+     * 服务端偶有重复条目，而两行在所有展示字段上都一样时丢掉一行毫无损失。
+     */
+    private fun dedupe(courses: List<Course>): List<Course> {
+        if (courses.size < 2) return courses
+        val seen = HashSet<String>(courses.size)
+        return courses.filter { seen.add("${it.id}|${it.day}|${it.beginTime}") }
+    }
+
+    /**
+     * 取某一天的课表：先联网，失败则回退本地缓存。
+     *
+     * 刻意**不碰** [courses]：由调用方（[loadToday] / [browseDay]）决定是否发布。
+     */
+    private suspend fun fetchDay(date: LocalDate): CourseQueryResult {
         val session = auth.requireSession()
         val dateStr = date.format(DAY_FMT)
         return try {
             val result = api.getTodayCourses(session, dateStr)
-            cache(session.studentNo, dateStr, result)
-            _courses.value = result
+            // 只把**请求的那一天**写进缓存：缓存键 `c_<学号>_<yyyyMMdd>` 的字面意思
+            // 就是「那一天的课」。周课表回退时 result 里带着整周，若原样落盘，
+            // 下次读缓存就会把整周的课当成那一天的内容显示出来。
+            cache(session.studentNo, dateStr, coursesOn(result, dateStr), result.message)
             result
         } catch (e: Exception) {
             val cached = readCache(session.studentNo, dateStr)
             if (cached != null) {
-                val withFlag = cached.copy(fromCache = true, message = "网络不可用，显示缓存课程")
-                _courses.value = withFlag
-                withFlag
+                cached.copy(fromCache = true, message = "网络不可用，显示缓存课程")
             } else {
                 throw e
             }
         }
     }
+
+    /**
+     * 取出结果中属于 [dateKey] 那一天的部分。
+     *
+     * 非周课表回退的结果本身就是单日数据，原样返回（不做多余的过滤，
+     * 避免因 `day` 字段缺失而把课程全部误删）。
+     */
+    private fun coursesOn(result: CourseQueryResult, dateKey: String): List<Course> =
+        if (!result.fromWeeklyFallback) {
+            result.courses
+        } else {
+            result.courses.filter { normalizeDay(it.day) == dateKey }
+        }
 
     fun clearAccountCache(studentNo: String?) {
         if (studentNo.isNullOrBlank()) {
@@ -102,8 +176,14 @@ class CourseRepository(
     }
 
     /**
-     * 只读今日本地缓存，**不走网络**。
-     * 供后台自动签到复用已有数据，避免每次唤醒都发请求。
+     * 只读某一天的本地缓存，**不走网络**。
+     *
+     * 两个用途：
+     * - 后台自动签到复用今天已有的数据，避免每次唤醒都发请求；
+     * - 课表浏览页先用缓存立刻渲染，再等网络结果覆盖（见 `ScheduleViewModel`）。
+     *
+     * 参数虽叫 `studentNo` + `date`，但日期不限于今天：缓存本来就是按日期分片的
+     * （键 `c_<学号>_<yyyyMMdd>`），因此浏览任意已看过的日期都能命中。
      */
     fun cachedToday(
         studentNo: String,
@@ -145,47 +225,17 @@ class CourseRepository(
         return if (d.length >= 8) d.take(8) else d
     }
 
-    private fun cache(studentNo: String, dateStr: String, result: CourseQueryResult) {
-        val arr = JSONArray()
-        result.courses.forEach { c ->
-            arr.put(
-                JSONObject()
-                    .put("id", c.id)
-                    .put("uuid", c.uuid)
-                    .put("name", c.name)
-                    .put("teacher", c.teacher)
-                    .put("begin", c.beginTime)
-                    .put("end", c.endTime)
-                    .put("day", c.day)
-                    .put("signed", c.signed),
-            )
-        }
+    private fun cache(studentNo: String, dateStr: String, courses: List<Course>, message: String) {
         prefs.edit()
-            .putString("c_${studentNo}_$dateStr", arr.toString())
-            .putString("m_${studentNo}_$dateStr", result.message)
+            .putString("c_${studentNo}_$dateStr", CourseCacheCodec.encode(courses))
+            .putString("m_${studentNo}_$dateStr", message)
             .apply()
     }
 
     private fun readCache(studentNo: String, dateStr: String): CourseQueryResult? {
         val raw = prefs.getString("c_${studentNo}_$dateStr", null) ?: return null
-        val arr = JSONArray(raw)
-        val list = buildList {
-            for (i in 0 until arr.length()) {
-                val o = arr.getJSONObject(i)
-                add(
-                    Course(
-                        id = o.optString("id"),
-                        uuid = o.optString("uuid"),
-                        name = o.optString("name"),
-                        teacher = o.optString("teacher"),
-                        beginTime = o.optString("begin"),
-                        endTime = o.optString("end"),
-                        day = o.optString("day"),
-                        signed = o.optBoolean("signed"),
-                    ),
-                )
-            }
-        }
+        // 解码失败（缓存损坏）与「空课表」必须区分：说成「当天无课」会误导用户。
+        val list = CourseCacheCodec.decode(raw) ?: return null
         return CourseQueryResult(
             courses = list,
             fromWeeklyFallback = false,

@@ -23,6 +23,13 @@
     <!-- 精确闹钟：让随机签到时刻不被 Doze 推迟；被撤销时自动降级为非精确闹钟。 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
+    <!--
+      传输安全：全局禁明文，仅放行课程注册表那一个域名。
+      `usesCleartextTraffic` 在同时配置了 networkSecurityConfig 时会被后者覆盖，
+      因此真正的策略在 @xml/network_security_config 里 —— 而该文件是**构建时生成**的
+      （见 app/build.gradle.kts 的 generateNetworkSecurityConfig）：注册表是明文 http
+      且不支持 https，只放行它一个域名即可，同时避免把校内主机名写进公开源码。
+    -->
     <application
         android:name=".QingxinApp"
         android:allowBackup="false"
@@ -35,7 +42,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.QingxinSignIn"
         android:usesCleartextTraffic="false">
-
         <!-- 小米可选增强：曝光刷新 / 版本号；无此 meta 时仍为标准 Android AppWidget -->
         <meta-data
             android:name="miuiWidgetVersion"

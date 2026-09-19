@@ -1,8 +1,11 @@
 package com.ucas.qingxin.signin.ui
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -18,11 +21,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,6 +35,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -38,6 +44,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -47,7 +57,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +76,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -72,17 +86,51 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.ucas.qingxin.signin.R
+import com.ucas.qingxin.signin.attendance.AutoSignExclusions
 import com.ucas.qingxin.signin.attendance.KeepAliveHelper
 import com.ucas.qingxin.signin.data.AttendanceUiStatus
 import com.ucas.qingxin.signin.data.Course
+import com.ucas.qingxin.signin.update.UpdateRelease
+import com.ucas.qingxin.signin.update.UpdateReleases
 import com.ucas.qingxin.signin.util.CourseTimeDisplay
+import com.ucas.qingxin.signin.util.DateInput
 import com.ucas.qingxin.signin.widget.TodayCourseWidgetReceiver
 import com.ucas.qingxin.signin.widget.WidgetPinHelper
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
-private enum class AppScreen { Home, Settings }
+private enum class AppScreen { Home, Schedule, Lecture, LectureSchedule, Manual, Settings }
 
 class MainActivity : ComponentActivity() {
     private val vm: MainViewModel by viewModels()
+    private val lectureVm: LectureViewModel by viewModels()
+
+    /**
+     * 课表浏览页的 ViewModel。
+     *
+     * 与 [lectureVm] 一样是**独立**的：它只读课表、不参与签到，
+     * 因此不需要（也不应该）与 [MainViewModel] 共享任何状态。
+     */
+    private val scheduleVm: ScheduleViewModel by viewModels()
+
+    /**
+     * 手动打卡页的 ViewModel。
+     *
+     * 同样是**独立**的：手动打卡只认「现场读到的编号」，不需要讲座通知、
+     * 也不需要当前课表，因此与 [lectureVm] 共享状态只会带来无谓的耦合。
+     */
+    private val manualVm: ManualSignViewModel by viewModels()
+
+    /**
+     * 「讲座预告（预约系统）」页的 ViewModel。
+     *
+     * **独立**是有意的：那一页的职责是「带读取功能的浏览器」（见 [LectureScheduleScreen]），
+     * 它不需要讲座通知、也不需要课表；而它读到的讲座时间表通过本机存档
+     * 与 [LectureViewModel] 交汇 —— 两个 ViewModel 之间不直接引用，
+     * 这样「谁先创建、谁先写入」都不会出错。
+     */
+    private val lectureScheduleVm: LectureScheduleViewModel by viewModels()
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { }
@@ -93,12 +141,17 @@ class MainActivity : ComponentActivity() {
         maybeRequestNotificationPermission()
         setContent {
             val state by vm.ui.collectAsStateWithLifecycle()
+            val lectureState by lectureVm.ui.collectAsStateWithLifecycle()
+            val lectureScheduleState by lectureScheduleVm.ui.collectAsStateWithLifecycle()
+            val scheduleState by scheduleVm.ui.collectAsStateWithLifecycle()
+            val manualState by manualVm.ui.collectAsStateWithLifecycle()
             // 用 rememberSaveable：旋屏 / 进程重建后仍停留在同一页，而不是突然跳回首页。
             var screen by rememberSaveable { mutableStateOf(AppScreen.Home) }
-            val onSettings = state.authenticated && screen == AppScreen.Settings
-            // 系统返回键 / 手势返回：在设置页应回到首页，而不是直接退出 App。
+            // 除首页外的子页面（设置 / 讲座）都支持返回键回首页。
+            val subScreen = state.authenticated && screen != AppScreen.Home
+            // 系统返回键 / 手势返回：在子页面应回到首页，而不是直接退出 App。
             // 弹窗（AlertDialog）自带更高的返回优先级，会先关掉弹窗，不受此处影响。
-            BackHandler(enabled = onSettings) { screen = AppScreen.Home }
+            BackHandler(enabled = subScreen) { screen = AppScreen.Home }
             QingxinTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { padding ->
                     Box(Modifier.padding(padding).fillMaxSize()) {
@@ -110,9 +163,34 @@ class MainActivity : ComponentActivity() {
                                 vm = vm,
                                 onBack = { screen = AppScreen.Home },
                             )
+                            screen == AppScreen.Lecture -> LectureScreen(
+                                state = lectureState,
+                                vm = lectureVm,
+                                onBack = { screen = AppScreen.Home },
+                                onOpenManualSign = { screen = AppScreen.Manual },
+                                onOpenSchedule = { screen = AppScreen.LectureSchedule },
+                            )
+                            screen == AppScreen.LectureSchedule -> LectureScheduleScreen(
+                                state = lectureScheduleState,
+                                vm = lectureScheduleVm,
+                                onBack = { screen = AppScreen.Lecture },
+                            )
+                            screen == AppScreen.Manual -> ManualSignScreen(
+                                state = manualState,
+                                vm = manualVm,
+                                onBack = { screen = AppScreen.Home },
+                            )
+                            screen == AppScreen.Schedule -> ScheduleScreen(
+                                state = scheduleState,
+                                vm = scheduleVm,
+                                onBack = { screen = AppScreen.Home },
+                            )
                             else -> HomeScreen(
                                 state = state,
                                 vm = vm,
+                                onOpenLecture = { screen = AppScreen.Lecture },
+                                onOpenSchedule = { screen = AppScreen.Schedule },
+                                onOpenManualSign = { screen = AppScreen.Manual },
                                 onOpenSettings = { screen = AppScreen.Settings },
                             )
                         }
@@ -243,8 +321,13 @@ private fun LoginScreen(state: AppUiState, vm: MainViewModel) {
 private fun HomeScreen(
     state: AppUiState,
     vm: MainViewModel,
+    onOpenLecture: () -> Unit,
+    onOpenSchedule: () -> Unit,
+    onOpenManualSign: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    // 进入主页时按需自动检查更新（有 12 小时节流，见 MainViewModel.onEnterHome）。
+    LaunchedEffect(Unit) { vm.onEnterHome() }
     LazyColumn(
         Modifier
             .fillMaxSize()
@@ -263,9 +346,70 @@ private fun HomeScreen(
                         "轻新签到",
                         style = MaterialTheme.typography.headlineSmall.copy(fontFamily = FontFamily.Serif),
                     )
-                    Text("学号 ${state.studentNo}", color = Color(0xFF4A5C55))
+                    Text(
+                        "学号 ${state.studentNo}",
+                        color = Color(0xFF4A5C55),
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
-                TextButton(onClick = onOpenSettings) { Text("设置") }
+                // 三个入口按钮 + 标题挤在一行：把按钮的横向内边距收窄，
+                // 否则在 360dp 宽度的机型上学号会被压成两行。
+                TextButton(
+                    onClick = onOpenSchedule,
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                ) { Text("课表") }
+                TextButton(
+                    onClick = onOpenLecture,
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                ) { Text("讲座") }
+                TextButton(
+                    onClick = onOpenSettings,
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                ) { Text("设置") }
+            }
+        }
+        // 更新提示横幅。
+        //
+        // 放在标题行正下方、手动打卡之前：它是一条**一次性**的信息（用户处理完就消失），
+        // 而手动打卡是常驻入口；一次性信息压在日常入口之上会让页面长期变重，
+        // 但它又必须足够靠前 —— 放在页面底部等于没有提示。
+        //
+        // 三种「不再打扰」的语义刻意分开（见 UpdateUiState）：
+        // 「稍后」= 本次会话不再显示，「不再提示」= 忽略这一个版本，
+        // 彻底关掉自动检查在设置页。
+        item { UpdateBanner(state, vm) }
+        // 手动打卡的首页入口。
+        //
+        // 放在标题行**下方**而不是挤进右上角那排按钮：那一行已有三个入口，
+        // 再塞一个会把学号压成两行（360dp 机型上实测如此）。
+        // 位置选在「今日课程」之前，是因为它的使用场景是「站在班牌前，
+        // 一刻也不想等」—— 恰好也是「自动打卡没能覆盖」时的兜底手段，
+        // 因此不该被压到页面底部去翻。
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenManualSign)
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("手动打卡", fontWeight = FontWeight.Bold)
+                        Text(
+                            "录入现场读到的 7 位编号 / 32 位标识",
+                            fontSize = 12.sp,
+                            color = Color(0xFF5B6B63),
+                        )
+                    }
+                    Text("进入 ›", fontSize = 13.sp, color = Color(0xFF0F6B4C), fontWeight = FontWeight.Medium)
+                }
             }
         }
         item {
@@ -339,6 +483,460 @@ private fun HomeScreen(
     }
 }
 
+/**
+ * 「课程表」页面：输入 / 选择任意日期，查看那一天的课表。
+ *
+ * ## 为什么与签到彻底分离
+ * 首页那套能力（二维码、一键签到）隐含一个前提——「看的课就是今天的课」。
+ * 把别的日期接进同一条链路会让「现在到底能不能签」变得难以解释，而签到窗口
+ * 只有一节多课的时间，容不下这种歧义。因此这一页**只读**：
+ * 没有二维码、没有签到按钮，课程行也不可点选。
+ *
+ * 对应的数据侧约束见 [ScheduleViewModel] 与 `CourseRepository.browseDay`：
+ * 浏览不会写 `CourseRepository.courses`，因此也不会影响小部件与自动签到。
+ */
+@Composable
+private fun ScheduleScreen(
+    state: ScheduleUiState,
+    vm: ScheduleViewModel,
+    onBack: () -> Unit,
+) {
+    // 每次进入本页都重取一次：缓存优先渲染，网络结果随后覆盖。
+    // 这样退出登录换账号后不需要任何额外的失效逻辑。
+    LaunchedEffect(Unit) { vm.onEnter() }
+
+    LazyColumn(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onBack) { Text("返回") }
+                Text(
+                    "课程表",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
+            }
+        }
+        item { ScheduleDateCard(state, vm) }
+        item { ScheduleNoticeCard(state) }
+        item { ScheduleSummary(state, vm) }
+        if (state.courses.isEmpty()) {
+            item { ScheduleEmptyOrLoading(state) }
+        } else {
+            // key 里带上 day：同一天内 id 若重复（实测服务端偶有重复条目）会直接抛异常闪退，
+            // 而列表顺序还可能因「周课表回退」而跨天。
+            items(state.courses, key = { it.id + it.day + it.beginTime }) { course ->
+                ScheduleCourseRow(course)
+            }
+        }
+    }
+}
+
+/** 日期输入 + 前后一天 + 今天 + 系统日期选择器。 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ScheduleDateCard(state: ScheduleUiState, vm: ScheduleViewModel) {
+    var showPicker by remember { mutableStateOf(false) }
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("查看日期", fontWeight = FontWeight.Bold)
+            OutlinedTextField(
+                value = state.dateInput,
+                onValueChange = vm::onDateInputChange,
+                singleLine = true,
+                isError = state.inputError,
+                label = { Text("日期") },
+                placeholder = { Text("2026-09-20") },
+                supportingText = {
+                    Text(
+                        if (state.inputError) {
+                            "看不懂这个日期，试试 2026-09-20 / 20260920 / 9月20日"
+                        } else {
+                            "可输入 2026-09-20、20260920、2026年9月20日、9-20"
+                        },
+                        fontSize = 11.sp,
+                        color = if (state.inputError) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            Color(0xFF5B6B63)
+                        },
+                    )
+                },
+                // 用文本键盘而不是数字键盘：日期里允许出现 `-` `/` `月` `日`，
+                // 数字键盘会把这些字符全部挡住，反而没法输入。
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { vm.submitDateInput() }),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { vm.stepDay(-1) },
+                    modifier = Modifier.weight(1f),
+                ) { Text("前一天") }
+                OutlinedButton(
+                    onClick = vm::goToday,
+                    modifier = Modifier.weight(1f),
+                ) { Text("今天") }
+                OutlinedButton(
+                    onClick = { vm.stepDay(1) },
+                    modifier = Modifier.weight(1f),
+                ) { Text("后一天") }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = vm::submitDateInput,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F6B4C)),
+                ) { Text("查询") }
+                OutlinedButton(
+                    onClick = { showPicker = true },
+                    modifier = Modifier.weight(1f),
+                ) { Text("选择日期") }
+            }
+        }
+    }
+    if (showPicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = state.selectedDate
+                .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            // 选择器返回的是 **UTC 当日零点**，必须按 UTC 解读：
+                            // 用本地时区换算会让东八区整体差一天（拿到前一天）。
+                            vm.selectDate(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate())
+                        }
+                        showPicker = false
+                    },
+                ) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) { Text("取消") }
+            },
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
+}
+
+/** 说清楚这一页不签到 —— 避免用户在这里找二维码，也避免误以为能看到别的日期的签到状态。 */
+@Composable
+private fun ScheduleNoticeCard(state: ScheduleUiState) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F7F4)),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                if (state.isToday) "这就是今天" else "本页仅供查看，不会签到",
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                color = Color(0xFF0F6B4C),
+            )
+            Text(
+                if (state.isToday) {
+                    "回到首页即可刷新课程、查看二维码并签到。"
+                } else {
+                    "签到只对今天的课有效，因此这里不提供二维码。要看二维码请回首页。"
+                },
+                fontSize = 11.sp,
+                color = Color(0xFF5B6B63),
+            )
+        }
+    }
+}
+
+/** 标题：日期 + 星期 + 节数 + 刷新。 */
+@Composable
+private fun ScheduleSummary(state: ScheduleUiState, vm: ScheduleViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(DateInput.prettyLabel(state.selectedDate), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            if (state.isToday) {
+                Spacer(Modifier.width(6.dp))
+                Text("今天", fontSize = 11.sp, color = Color(0xFF0F6B4C), fontWeight = FontWeight.SemiBold)
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                // 还没有任何内容可显示时别报「共 0 节」——那读起来像「这天没课」，
+                // 而实际上只是还没同步回来。
+                if (state.loading && state.total == 0) {
+                    "正在同步…"
+                } else {
+                    buildString {
+                        append("共 ${state.total} 节")
+                        if (state.fromCache) append(" · 本地缓存")
+                        // 缓存已铺在屏幕上、网络结果还在路上时给一个暗示，
+                        // 否则用户会以为看到的就是最新数据。
+                        if (state.loading) append(" · 同步中…")
+                    }
+                },
+                fontSize = 12.sp,
+                color = Color(0xFF5B6B63),
+            )
+            TextButton(onClick = vm::refresh, enabled = !state.loading) { Text("刷新") }
+        }
+        if (state.message.isNotBlank()) {
+            Text(state.message, fontSize = 11.sp, color = Color(0xFF6B7C74))
+        }
+    }
+}
+
+/** 无课 / 加载中 / 出错，三种状态共用一块占位卡片。 */
+@Composable
+private fun ScheduleEmptyOrLoading(state: ScheduleUiState) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            when {
+                state.loading -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("正在同步 ${DateInput.display(state.selectedDate)} 的课表…", fontSize = 13.sp)
+                }
+                state.error.isNotBlank() -> Text(
+                    state.error,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 13.sp,
+                )
+                else -> {
+                    Text(
+                        "${DateInput.prettyLabel(state.selectedDate)} 没有课程",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                    )
+                    Text(
+                        "可以换一天看看，或点上方「刷新」重新同步。",
+                        fontSize = 12.sp,
+                        color = Color(0xFF5B6B63),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 只读的课程行（对比首页 [CourseRow]：没有选中态、不可点选）。 */
+@Composable
+private fun ScheduleCourseRow(course: Course) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Row(Modifier.padding(14.dp)) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(56.dp)
+                    .background(Color(0xFF8FA89C), RoundedCornerShape(999.dp)),
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    CourseTimeDisplay.range(course.beginTime, course.endTime),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF3E5249),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    course.name,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    color = Color(0xFF16362B),
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "教师：${course.teacher.ifBlank { "—" }}",
+                    fontSize = 13.sp,
+                    color = Color(0xFF5B6B63),
+                )
+                // 看历史日期时「那天签没签」本身就是有用的信息，因此这里保留签到状态；
+                // 它只是服务端返回的一个事实，不附带任何操作。
+                if (course.signed) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "已签到",
+                        fontSize = 11.sp,
+                        color = Color(0xFF2E7D4F),
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 主页的更新提示横幅。
+ *
+ * 只在「检测到更高版本、该版本没被忽略、用户也没点稍后」时出现
+ * （判据集中在 [UpdateUiState.showBanner]）。
+ *
+ * **网络失败时这里什么都不显示**：一次断网不该让主页上多出一句用户看不懂的报错，
+ * 而且他此刻也做不了什么；失败信息只出现在设置页的「关于 / 更新」卡片里，
+ * 那里才是用户主动来问「有没有新版」的地方。
+ */
+@Composable
+private fun UpdateBanner(state: AppUiState, vm: MainViewModel) {
+    val update = state.update
+    val release = update.available
+    if (!update.showBanner || release == null) return
+    val context = LocalContext.current
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF6E5)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "发现新版本 ${release.version}",
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "当前 ${update.currentVersion}",
+                    fontSize = 12.sp,
+                    color = Color(0xFF5B6B63),
+                )
+            }
+            val summary = UpdateReleases.summary(release.notes)
+            Text(
+                summary.ifBlank { release.title },
+                fontSize = 12.sp,
+                color = Color(0xFF5B6B63),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = { openReleasePage(context, release) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F6B4C)),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                ) { Text("去 GitHub 更新", fontSize = 14.sp) }
+                TextButton(onClick = vm::dismissUpdate) { Text("稍后") }
+                TextButton(onClick = vm::ignoreUpdateVersion) { Text("不再提示") }
+            }
+        }
+    }
+}
+
+/**
+ * 设置页的「关于 / 更新」卡片。
+ *
+ * 与主页横幅的分工：横幅负责「让用户看到」，这里负责「让用户控制与查询」——
+ * 当前版本号、自动检查开关、手动检查、以及已忽略版本的恢复入口都在这里。
+ * 已忽略的版本**仍然显示**，而不是假装不存在：用户要能知道自己当初忽略了什么。
+ */
+@Composable
+private fun UpdateCard(state: AppUiState, vm: MainViewModel) {
+    val update = state.update
+    val context = LocalContext.current
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("关于 / 更新", fontWeight = FontWeight.Bold)
+            Text(
+                "当前版本 ${update.currentVersion}（${update.currentCode}）",
+                fontSize = 13.sp,
+                color = Color(0xFF4A5C55),
+            )
+            SettingSwitch("自动检查更新", update.autoCheck) { vm.setAutoCheckUpdate(it) }
+            Text(
+                "进入主页时自动检查一次（约 12 小时一次），发现新版本会在主页提示；" +
+                    "也可以随时用下面的按钮手动检查。",
+                fontSize = 11.sp,
+                color = Color(0xFF6B7C74),
+            )
+            OutlinedButton(
+                onClick = { vm.checkForUpdate(auto = false) },
+                enabled = !update.checking,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(if (update.checking) "检查中…" else "检查更新") }
+            val release = update.available
+            if (release != null) {
+                Text(
+                    "发现新版本 ${release.version}：" +
+                        UpdateReleases.summary(release.notes).ifBlank { release.title },
+                    fontSize = 12.sp,
+                    color = Color(0xFF0F6B4C),
+                    fontWeight = FontWeight.Medium,
+                )
+                OutlinedButton(
+                    onClick = { openReleasePage(context, release) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("去 GitHub 更新") }
+            }
+            if (update.ignoredTag.isNotBlank()) {
+                Text(
+                    "已忽略版本 ${update.ignoredTag}，不再在主页提示",
+                    fontSize = 12.sp,
+                    color = Color(0xFF5B6B63),
+                )
+                OutlinedButton(
+                    onClick = vm::clearIgnoredVersion,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("恢复提示") }
+            }
+            if (update.status.isNotBlank()) {
+                Text(update.status, fontSize = 12.sp, color = Color(0xFF0F6B4C))
+            }
+            if (update.error.isNotBlank()) {
+                Text(
+                    update.error,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 用系统浏览器打开 Release 页。
+ *
+ * 走浏览器而不是在应用内下载：应用不做安装器，也不该替用户决定下载什么文件；
+ * Release 页上有说明正文与资产列表，用户能看到自己要装的是什么。
+ * 没有可用浏览器（`ActivityNotFoundException`）时静默忽略，不让一次点击崩掉应用。
+ */
+private fun openReleasePage(context: Context, release: UpdateRelease) {
+    if (release.pageUrl.isBlank()) return
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.pageUrl)))
+    }
+}
+
 @Composable
 private fun SettingsScreen(
     state: AppUiState,
@@ -386,7 +984,9 @@ private fun SettingsScreen(
             }
         }
         item { AutoSignCard(state, vm) }
+        item { AutoSignExcludeCard(state, vm) }
         item { KeepAliveCard(state, vm) }
+        item { UpdateCard(state, vm) }
         item {
             val context = LocalContext.current
             var showGuide by remember { mutableStateOf(false) }
@@ -544,6 +1144,134 @@ private fun AutoSignCard(state: AppUiState, vm: MainViewModel) {
                     fontWeight = FontWeight.Medium,
                 )
             }
+        }
+    }
+}
+
+/**
+ * 「不自动打卡的课程」设置卡片。
+ *
+ * ## 为什么有两个开关
+ * 两种需求在现实中同时存在，且语义不同：
+ * - **今日跳过**：只对今天生效，跨天自动失效（「就今天不想签」）；
+ * - **长期不打卡**：一直生效，直到用户手动取消（「这门课永远不用签」）。
+ * 用一个开关无法同时表达，用两个开关则一眼可辨。
+ *
+ * ## 为什么列表只列「今日课程」
+ * 应用手上只有今日课表（全量课表要额外按周扫描，代价大且与本页无关）。
+ * 这不影响长期设置的可用性：排除键是**课程级**的（`courseId`），
+ * 今天为某门课打开「长期不打卡」，它在此后每一天都不会被自动签。
+ */
+@Composable
+private fun AutoSignExcludeCard(state: AppUiState, vm: MainViewModel) {
+    var showPicker by remember { mutableStateOf(false) }
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("不自动打卡的课程", fontWeight = FontWeight.Bold)
+            Text(
+                "「今日跳过」只在今天生效；「长期不打卡」一直生效，随时可以取消。",
+                fontSize = 12.sp,
+                color = Color(0xFF5B6B63),
+            )
+            Text(
+                "今日跳过 ${state.excludedToday.size} 节 · 长期排除 ${state.excludedPermanent.size} 门",
+                fontSize = 12.sp,
+                color = Color(0xFF0F6B4C),
+                fontWeight = FontWeight.Medium,
+            )
+            if (state.courses.isEmpty()) {
+                Text(
+                    "今日课程尚未加载：请先在首页点「刷新课程」，再来选择。",
+                    fontSize = 11.sp,
+                    color = Color(0xFFB26A00),
+                )
+            }
+            if (!state.settings.autoSignEnabled) {
+                Text(
+                    "自动签到当前是关闭状态，这里的设置会在开启后生效。",
+                    fontSize = 11.sp,
+                    color = Color(0xFF6B7C74),
+                )
+            }
+            OutlinedButton(
+                onClick = { showPicker = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("选择课程") }
+        }
+    }
+    if (showPicker) {
+        ExcludeCourseDialog(state, vm) { showPicker = false }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExcludeCourseDialog(
+    state: AppUiState,
+    vm: MainViewModel,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("选择不自动打卡的课程") },
+        text = {
+            if (state.courses.isEmpty()) {
+                Text("今日暂无课程。请先在首页刷新课程后再设置。", fontSize = 13.sp)
+            } else {
+                LazyColumn(
+                    // 上限而不是固定高度：课程少时弹窗紧凑，课程多时内部滚动，
+                    // 不会把「完成」按钮顶出屏幕。
+                    modifier = Modifier.heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    items(state.courses, key = { it.id + it.beginTime }) { course ->
+                        ExcludeCourseRow(course, state, vm)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("完成") }
+        },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExcludeCourseRow(course: Course, state: AppUiState, vm: MainViewModel) {
+    // 键的计算要跟着课程对象走：课表刷新后同一个 list 位置可能是另一门课，
+    // 若用 remember{} 缓存而不给 key，会把上一门课的排除状态显示到新课上。
+    val key = remember(course) { AutoSignExclusions.courseKey(course) }
+    val todayExcluded = key in state.excludedToday
+    val permanent = key in state.excludedPermanent
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(
+            "${CourseTimeDisplay.range(course.beginTime, course.endTime)} · ${course.name}",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF16362B),
+            maxLines = 2,
+        )
+        Text(
+            "教师：${course.teacher.ifBlank { "—" }}",
+            fontSize = 11.sp,
+            color = Color(0xFF5B6B63),
+        )
+        Spacer(Modifier.height(4.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = todayExcluded,
+                onClick = { vm.setExcludeToday(course, !todayExcluded) },
+                label = { Text("今日跳过", fontSize = 12.sp) },
+            )
+            FilterChip(
+                selected = permanent,
+                onClick = { vm.setExcludePermanent(course, !permanent) },
+                label = { Text("长期不打卡", fontSize = 12.sp) },
+            )
         }
     }
 }

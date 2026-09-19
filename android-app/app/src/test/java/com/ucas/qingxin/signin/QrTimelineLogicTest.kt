@@ -28,7 +28,8 @@ class QrTimelineLogicTest {
         val url = api.buildSignQrUrl("1234567", 1_700_000_000_000L)
         assertTrue(url.contains("courseSchedId=1234567"))
         assertTrue(url.contains("timestamp=1700000000000"))
-        assertTrue(url.startsWith("https://iclass.ucas.edu.cn:8181/app/course/stu_scan_sign.action"))
+        // 断言拼装结果，而不是硬编码主机：主机与端口由本地 local.properties 注入。
+        assertTrue(url.startsWith(BuildConfig.API_BASE_URL + "course/stu_scan_sign.action"))
     }
 
     @Test

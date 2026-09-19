@@ -11,7 +11,7 @@
 
 适用于只想直接使用 App 的 Android 用户：
 
-1. 下载最新安装包 [qingxin-signin-1.1.13-release.apk](https://github.com/zhan-nine/UCAS-Sign-in/raw/refs/heads/main/releases/qingxin-signin-1.1.13-release.apk)，也可以从项目的 [Releases 发布页](https://github.com/zhan-nine/UCAS-Sign-in/releases) 或仓库 [`releases/`](./releases/) 目录获取。
+1. 下载最新安装包 [qingxin-signin-1.2.0-release.apk](https://github.com/zhan-nine/UCAS-Sign-in/raw/refs/heads/main/releases/qingxin-signin-1.2.0-release.apk)，也可以从项目的 [Releases 发布页](https://github.com/zhan-nine/UCAS-Sign-in/releases) 或仓库 [`releases/`](./releases/) 目录获取。
 2. 下载完成后，点击 APK 文件开始安装。若系统提示“禁止安装未知来源应用”，请在系统设置中允许当前使用的浏览器或文件管理器“安装未知应用”，然后返回继续安装。
 3. 如果 Android 或 HyperOS 显示“风险应用”“此应用可能有害”等侧载提醒，请先确认安装包来自本项目的可信发布页；确认来源无误后，点击“仍要安装”“继续安装”或类似按钮完成安装。
 4. 安装完成后点击“打开”，输入学校账号即可使用。
@@ -35,7 +35,13 @@
 
 - 支持 SEP 邮箱或轻新课堂学号登录（共用同一输入框），会话加密存储（EncryptedSharedPreferences）
 - 今日课程列表、当前/下一节判定
+- **按日期看课表**：可输入任意日期（或前后一天 / 日期选择器）查看那一天的课程；只看不签，不影响自动打卡与小部件
 - 一键签到 / 后台随机自动签到（常驻通知 + 强制结果通知）/ 通知提醒
+- **自动打卡排除名单**：「今日跳过」只对今天生效，「长期不打卡」一直生效，随时可取消
+- **手动打卡（独立页面）**：录入现场读到的 7 位编号或 32 位标识即可打卡，不依赖任何列表与网络数据
+- **讲座预告（测试中）**：按「即将开始 / 暂无举办日期 / 往期」分段（往期默认折叠）。带日期与场地的条目来自**讲座预约系统**（须先在应用内完成 SEP 登录再读取；应用不保存账号密码）；只有标题的条目来自人文学院网站，单独放在「暂无举办日期」（发布日 ≠ 讲座日，不能标成即将开始）。同一场讲座按**期次号**合并成一条。这一组功能的数据来源与分类判据仍在调整，因此应用内统一标注「测试中」
+- **新讲座通知（测试中）**：发现学院网站新发布的预告时提醒一次（这一条不需要登录，因此可以后台检查；需要登录的预约系统数据做不到无人值守，不参与提醒）
+- **版本更新提示**：进入主页时自动检查本仓库的 GitHub Releases（约 12 小时一次），发现更高版本时在主页提示并提供「去 GitHub 更新」；可选择「稍后」或「不再提示」（仅忽略该版本）。设置页可查看当前版本、开关自动检查、手动检查、恢复已忽略的版本
 - 签到二维码与学校时间轴对齐（`get_timestamp` + TTL）
 - 跨安卓桌面小部件：2×2 / 4×2 / 4×4（兼容原生及主流厂商启动器，含 ColorOS / OriginOS / HarmonyOS / One UI；小米另支持负一屏，内容随课时边界与跨天及时刷新）
 
@@ -45,6 +51,7 @@
 UCAS-Sign-in/
 ├── android-app/          # Android Studio / Gradle 工程
 ├── releases/             # Release APK 发布目录
+├── tools/                # 只读研究探针（打包产物 + 说明；源码与端点配置不入库）
 ├── LICENSES/             # 第三方许可证全文（AGPL-3.0 / LGPL-3.0）
 ├── LICENSE               # 本项目主许可证（AGPL-3.0）
 ├── NOTICE                # 上游与第三方组件归属声明
@@ -62,8 +69,16 @@ UCAS-Sign-in/
 
 ```bash
 cd android-app
-# 配置本机 SDK
-echo "sdk.dir=YOUR_ANDROID_SDK_PATH" > local.properties
+# 配置本机 SDK 与后端端点（缺任一键 Gradle 会直接报错）
+# 可直接复制模板，再填入真实值：cp local.properties.example local.properties
+cat > local.properties <<'EOF'
+sdk.dir=YOUR_ANDROID_SDK_PATH
+ucas.iclass.apiBaseUrl=<你的 API 根地址，以斜杠结尾>
+ucas.iclass.verifyUrlTemplate=<你的校验地址模板，保留三个占位符>
+ucas.renwen.baseUrl=<人文学院站点根地址>
+ucas.renwen.mingdePath=<明德讲堂栏目路径>
+ucas.renwen.artPath=<艺术与人文栏目路径>
+EOF
 
 # 可选：Release 签名
 cp keystore/keystore.properties.example keystore/keystore.properties
@@ -73,6 +88,20 @@ cp keystore/keystore.properties.example keystore/keystore.properties
 # 或
 ./gradlew :app:assembleRelease
 ```
+
+> [!IMPORTANT]
+> **发布前请用下面这条命令**：把单测与 `assembleRelease` 写在同一次调用里，
+> 单测不过就不会出包（`assembleRelease` 本身**不依赖**单测任务，
+> 单跑它会跳过测试直接出包）：
+>
+> ```bash
+> ./gradlew :app:testDebugUnitTest :app:assembleRelease
+> ```
+
+> [!IMPORTANT]
+> 后端主机与端口**不在本仓库源码中**，需由上面的 `local.properties` 注入。
+> 缺少这些键时构建会失败并提示，这是有意设计——避免把校内服务地址写进公开仓库。
+> 只安装 APK 的用户不受影响。
 
 产物路径：
 
@@ -218,6 +247,25 @@ App 内 **设置 → 查看手动添加步骤** 会按当前桌面自动给出�
 | `POST_NOTIFICATIONS` | 常驻状态通知与自动签到结果通知 |
 
 本项目通过 GitHub 侧载分发，不涉及 Google Play 对上述权限的政策审核。
+
+## 版本与更新提示
+
+应用会读本仓库的 GitHub Releases 来判断是否有新版本，具体行为：
+
+- **自动检查**：进入主页时检查一次（**12 小时内最多一次**），只在能连上 GitHub 时才成功；
+- **提示方式**：检测到更高版本时，主页顶部出现一条横幅，可点「去 GitHub 更新」在浏览器打开该 Release 页，由你自己下载安装（应用不做应用内下载与安装器）；
+- **三种「不打扰」语义刻意分开**：
+  - **稍后** —— 本次会话不再显示，下次启动仍会提示；
+  - **不再提示** —— 忽略**当前这一个版本**；将来出现更高的版本仍会提示；
+  - **自动检查更新**（设置 → 关于 / 更新）—— 总开关，关掉后不再自动检查，手动「检查更新」仍可用。
+- 设置页可随时查看当前版本号、手动检查、以及恢复已忽略的版本。
+
+比较依据是**版本号**（如 `1.2.0`、`1.1.13alpha`），不是发布时间：GitHub 不提供 Android 的 `versionCode`，
+因此发版时 tag 的版本号必须严格大于已发布版本，否则检测不到。
+
+隐私：检查更新只对 GitHub 公开接口发一次只读 GET，**不携带账号、token 或设备标识**；
+GitHub 的地址是公开且通用的（与本项目公开仓库一致），不属于「校内端点」，
+因此它与 iClass / 讲座等地址不同，直接写在源码里而不走 `local.properties`。
 
 ## 致谢 / 上游项目
 

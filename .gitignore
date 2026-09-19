@@ -20,12 +20,23 @@ local.properties
 *.jks
 *.keystore
 
-# 默认忽略 APK；仅允许 releases/ 中的发布包入库
+# APK / AAB：默认全部忽略，只放行 releases/ 下**当前最新**的那一个安装包。
+#
+# 规则顺序不能调：后面的规则覆盖前面的。
+#   `*.apk` 先把所有产物挡掉（含 build 目录里的中间产物）；
+#   `!releases/` 再让发布目录本身可被跟踪；
+#   `releases/*.apk` 把该目录下的历史版本重新挡掉；
+#   最后一行只放行当前版本。
+#
+# 发布新版本时要同步做两件事，否则仓库里会留着多余的包：
+#   1. 把下面最后一行的版本号改成新的；
+#   2. `git rm --cached releases/<旧版本>.apk` 把旧包移出跟踪。
 *.apk
 *.aab
 *.ap_
 !releases/
-!releases/*.apk
+releases/*.apk
+!releases/qingxin-signin-1.2.0-release.apk
 android-app/app/release/
 dist/
 
@@ -34,3 +45,15 @@ dist/
 *.tmp
 .DS_Store
 Thumbs.db
+
+# 本地研究工具：源码与端点配置绝不入库（含后台主机 / 端口 / 路径）
+tools/src/
+tools/endpoints.local.json
+tools/redact.local.txt
+tools/out/
+*.session.json
+
+# 本地研究草稿：抓包页面 / 第三方仓库源码快照 / 原始 feed
+# —— 这些文件里含校内主机名与端口，且非本项目产物，绝不入库
+.cursor/_probe_tmp/
+.research_readonly/

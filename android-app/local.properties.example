@@ -1,0 +1,62 @@
+# 本地配置模板 —— 复制为 local.properties 后填入真实值。
+#
+# local.properties 已被 .gitignore 忽略，**请勿提交含真实端点的版本**。
+# 后端主机、端口与后台路径不写入仓库源码，构建时由本文件注入 BuildConfig。
+#
+# 说明：本项目面向特定的校内服务，端点不适合公开，因此需要构建者自行配置。
+# 若缺失下列任一键，Gradle 会直接报错并提示。
+
+# Android SDK 路径（Android Studio 通常会自动写入）
+sdk.dir=
+
+# 移动端 API 根地址。务必以斜杠结尾。
+ucas.iclass.apiBaseUrl=https://<host>:<port>/<base-path>/
+
+# 登录时随请求体提交的校方校验地址模板。
+# 必须保留三个占位符，依次代表用户名、密码与登录类型，由服务端替换；请原样保留。
+ucas.iclass.verifyUrlTemplate=http://<host>:<port>/<verify-path>?<query-with-three-placeholders>
+
+# 人文讲座通知站点（人文学院网站）。同样是校内端点，因此同样外置。
+# 「查看详情」要跳到具体文章页，所以除了两个栏目地址还要一个站点根地址：
+# 列表里保存的是相对路径，拼接时才用得上它。
+ucas.renwen.baseUrl=https://<host>
+ucas.renwen.mingdePath=/index.php/<明德讲堂栏目路径>
+ucas.renwen.artPath=/index.php/<艺术与人文修养栏目路径>
+
+# 课程注册表：iClass 后台的匿名只读目录页。**仅「找下一场讲座」的哨兵会用它**，
+# 且只读取课程名，不解析任何成员名单。
+#
+# 三个键分别回答「问哪个地址」「用哪个查询参数」「参数取什么值」——
+# 后两者一并外置是有意的：光有主机没有动作名，端点仍是不可用的。
+ucas.iclass.registryUrl=https://<host>:<port>/<registry-page-path>
+ucas.iclass.registryMethodParam=<查询参数名>
+ucas.iclass.registryDetailMethod=<该参数用于读取课程名的取值>
+
+# 哨兵基点：**本学期第一场讲座**在注册表里的编号。
+#
+# 讲座条目是按排期逐场追加的，且编号单调递增，所以「上一场讲座的编号」就是
+# 下一场必然出现在其后的位置——哨兵据此向前扫，不必全库枚举。
+#
+# ⚠ 每个学期都要更新一次：换成新学期第一场讲座的编号（或上学期最后一场），
+#   否则会从旧位置开始扫过整段已经分配的旧区间。留空 = 不启用哨兵。
+ucas.iclass.sentinelAnchorCid=<5 位编号>
+
+# 讲座预约系统（xkcts）。**需要登录**，因此它不是抓取入口，而是「讲座预告」页里
+# 内嵌 WebView 的落地页：用户在 WebView 里自行完成 SEP 登录（含验证码 / 邮箱验证），
+# 应用只读取页面上的讲座时间表，不代持也不上传任何凭据。
+#
+# 为什么必须用它：这张表是**唯一**同时给出「讲座日期 + 开始/结束时间 + 场地」的来源。
+# 学院网站的通知只有发布日期（实测预告正文多为海报图片，日期印在图上），
+# iClass 课程注册表只有课程名。缺了日期就无法判断「这场讲完了没」。
+#
+# 登录入口必须是 SEP，不能直开讲座栏目：未登录直开栏目会 302 到 /redirect，
+# 再 JS 跳到 /appStore；后者在「被当成 API」时会直接返回
+# {"code":401,"msg":"未登录或会话已过期","toUrl":"/"}，WebView 里就只剩这一行 JSON。
+# loginFrom=/appStore 让登录成功后回到应用商店/工作台，再进选课系统拿会话。
+ucas.sep.loginUrl=https://<sep-host>/?loginFrom=/appStore
+# 新版选课主页：SEP「选课系统」SSO 之后的落点。讲座预告入口在该页左侧菜单。
+ucas.xkgo.baseUrl=https://<xkgo-host>:<port>
+ucas.xkgo.mainPath=/courseManage/main
+ucas.xkcts.baseUrl=https://<host>:<port>
+ucas.xkcts.humanityPath=/subject/<人文讲座栏目路径>
+ucas.xkcts.sciencePath=/subject/<科学前沿讲座栏目路径>
