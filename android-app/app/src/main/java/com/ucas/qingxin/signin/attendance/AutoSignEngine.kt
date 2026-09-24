@@ -320,7 +320,7 @@ internal object AutoSignEngine {
     private fun markNotified(key: String): Boolean = notified.putIfAbsent(key, true) == null
 
     /**
-     * 「签到前提醒」的时刻：**上课前 15 分钟**。
+     * 「上课前提醒」的时刻：**上课前 15 分钟**（对应设置页与通知里的「上课前提醒」）。
      *
      * ## 为什么是「相对上课时刻」而不是「相对随机签到时刻」
      * 随机签到时刻每节课都不同（`[上课前15分钟, 上课前30秒]` 内均匀随机），
