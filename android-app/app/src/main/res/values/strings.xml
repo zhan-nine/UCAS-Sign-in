@@ -83,7 +83,7 @@
     <string name="auto_sign_status_need_login">请打开应用登录，自动签到才能生效</string>
     <string name="auto_sign_status_waiting">正在准备自动签到…</string>
 
-    <!-- 自动签到：前置提醒（随机时刻前 2 分钟，进程内发出，不额外唤醒设备） -->
+    <!-- 自动签到：前置提醒（上课前 15 分钟，独立闹钟，不联网也不启服务） -->
     <string name="auto_sign_upcoming_title">即将自动签到</string>
     <string name="auto_sign_upcoming_body">将在 %1$s 为《%2$s》自动签到</string>
 
@@ -109,7 +109,8 @@
     <string name="keepalive_status_exact_alarm">精确闹钟</string>
     <string name="keepalive_status_autostart">自启动</string>
     <string name="keepalive_status_lock">锁定后台</string>
-    <string name="keepalive_status_daemon">常驻后台服务</string>
+    <string name="keepalive_status_daemon">后台服务（按需启用）</string>
+    <string name="keepalive_status_daemon_saver">省电模式：不使用常驻后台服务</string>
     <string name="keepalive_autostart_note">系统未提供查询接口，重启一次手机后即可自动确认</string>
     <string name="keepalive_open_battery">关闭省电策略</string>
     <string name="keepalive_open_autostart">允许自启动</string>
@@ -119,11 +120,15 @@
     <string name="keepalive_lock_button">锁定后台（图文步骤）</string>
     <string name="keepalive_lock_confirm">我已按步骤锁定后台</string>
     <string name="keepalive_lock_close">知道了</string>
-    <string name="keepalive_low_power_title">低耗电模式</string>
-    <string name="keepalive_low_power_desc">关闭常驻通知与后台服务，只保留每节课一个闹钟。更省电，但可能晚几十秒到十几分钟，也不再有「下次签到时刻」的常驻提示。</string>
-    <string name="keepalive_wakeup_budget">今日预计唤醒：%1$d 次（每节课 1 次 + 跨天 1 次）</string>
+    <string name="keepalive_low_power_title">耗电模式</string>
+    <string name="keepalive_profile_normal">普通模式</string>
+    <string name="keepalive_profile_saver">省电模式</string>
+    <string name="keepalive_profile_normal_desc">功能全保留，只消除浪费：上课前 15 分钟提醒、后台按需精确定时、小部件与倒计时跟手。它不做的是「与前台无关的轮询」——这是 1.2.0 真正耗电的地方。</string>
+    <string name="keepalive_profile_saver_desc">在普通模式之上再降一档：不使用常驻后台服务、窗口内重试上限 8→3 次、小部件与讲座巡检周期翻倍、关闭小部件秒级重绘。代价是偶发晚几十秒到十几分钟；提醒与全部读数都保留。</string>
+    <string name="keepalive_profile_table">两档对照\n· 后台服务：按需启用 / 不使用\n· 上课前 15 分钟提醒：都有\n· 窗口内重试上限：8 次 / 3 次\n· 小部件数据兜底：60 分钟 / 120 分钟\n· 小部件周期任务：60 分钟 / 120 分钟\n· 讲座巡检：24 小时 / 48 小时\n· 二维码取码：仅主页可见且在签到窗口内（两档相同）</string>
+    <string name="keepalive_wakeup_budget">今日预计唤醒：%1$d 次（每节课 2 次：上课前提醒 + 签到，另加跨天 1 次）</string>
+    <string name="keepalive_wakeup_budget_saver">今日预计唤醒：%1$d 次（每节课 2 次，无常驻服务、窗口内最多尝试 3 次）</string>
     <string name="keepalive_wakeup_budget_unknown">唤醒预算：按今日课表计算</string>
-    <string name="keepalive_low_power">低耗电模式</string>
     <string name="keepalive_lock_coloros">OPPO / 一加 / realme（ColorOS）：\n1) 打开「最近任务」（多任务）界面；\n2) 找到本应用卡片，下拉（或长按卡片右上角「⋮」）；\n3) 选择「锁定」/ 出现小锁图标即可；\n4) 再到 设置 → 电池 → 应用耗电管理 → 本应用 → 允许「后台运行 / 允许完全后台行为」。</string>
     <string name="keepalive_lock_miui">小米 / Redmi（HyperOS / MIUI）：\n1) 打开「最近任务」；\n2) 长按本应用卡片 → 点击出现的「锁」图标；\n3) 再到 设置 → 应用设置 → 本应用 → 省电策略 → 选「无限制」；\n4) 设置 → 应用设置 → 本应用 → 自启动 → 允许。</string>
     <string name="keepalive_lock_vivo">vivo / iQOO（OriginOS）：\n1) 打开「最近任务」；\n2) 点击本应用卡片右上角「⋮」→ 选择「锁定」；\n3) 再到 i 管家 → 应用管理 → 权限管理 → 自启动 → 允许本应用；\n4) i 管家 → 省电管理 → 后台高耗电 → 允许本应用。</string>

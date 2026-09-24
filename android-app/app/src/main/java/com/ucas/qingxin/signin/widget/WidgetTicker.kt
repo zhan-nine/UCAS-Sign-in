@@ -1,6 +1,8 @@
 package com.ucas.qingxin.signin.widget
 
 import android.content.Context
+import com.ucas.qingxin.signin.attendance.PowerProfiles
+import com.ucas.qingxin.signin.attendance.ResolvedPowerProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -17,18 +19,18 @@ import kotlinx.coroutines.launch
  * 「下一节」和「当前可签到」。而系统只在特定事件回调 provider，闹钟最细也只能到
  * 分钟级且会被 Doze 推迟。只要应用进程还活着，一次本地 tick 就能让显示跟上时间。
  *
- * 运行策略（避免常驻耗电）：
- * - 应用在前台 → 持续运行；
- * - 退到后台 / 由闹钟或 WorkManager 唤起 → 只运行一段宽限期（[GRACE_MS]）后自动停止；
+ * ## 运行策略（避免常驻耗电）
+ * - 应用在**前台** → 持续运行。此时屏幕亮着，这点本地重绘的代价被屏幕功耗淹没；
+ * - 应用退到后台 → 按档位保留一段宽限（[ResolvedPowerProfile.widgetGraceMs]）再停；
+ *   **省电档的宽限是 0，即立刻停**；
+ * - **不再由闹钟 / WorkManager 唤起时启动**（1.2.1 起）：唤起方自己已经重绘过一遍，
+ *   再撑 3 分钟 ticker 只会平白多出几分钟的进程内唤醒，而这段时间里没有任何新边界要跨。
  * - 协程**不会**阻止进程被回收。进程被回收后由 [WidgetRefreshScheduler] 的
  *   边界闹钟与 WorkManager 接手。
  */
 internal object WidgetTicker {
 
     private const val TICK_MS = 60_000L
-
-    /** 后台/被唤起后保持精确更新的宽限时长。 */
-    private const val GRACE_MS = 3L * 60L * 1000L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
@@ -45,17 +47,28 @@ internal object WidgetTicker {
 
     fun onAppBackground(context: Context) {
         foreground = false
-        if (WidgetHostCompat.widgetCount(context.applicationContext) == 0) {
+        val appContext = context.applicationContext
+        if (WidgetHostCompat.widgetCount(appContext) == 0) {
             stop()
-        } else {
-            scheduleAutoStop(GRACE_MS)
+            return
         }
+        scheduleAutoStop(appContext)
     }
 
-    /** 被闹钟 / WorkManager 唤起时调用：跑一段宽限期后自动停。 */
-    fun startForGrace(context: Context) {
-        startIfNeeded(context)
-        if (!foreground) scheduleAutoStop(GRACE_MS)
+    /**
+     * 档位变化时调用：宽限时长可能从「60 秒」变成「0（不使用）」，需要重新评估。
+     *
+     * 省电档下若此刻在后台，就立刻停掉 —— 用户点了「省电模式」之后
+     * 还让 ticker 再跑一分钟，与这个开关的承诺不符。
+     */
+    fun onProfileChanged(context: Context) {
+        if (foreground) return
+        val appContext = context.applicationContext
+        if (WidgetHostCompat.widgetCount(appContext) == 0) {
+            stop()
+            return
+        }
+        scheduleAutoStop(appContext)
     }
 
     fun startIfNeeded(context: Context) {
@@ -82,8 +95,14 @@ internal object WidgetTicker {
         job = null
     }
 
-    private fun scheduleAutoStop(graceMs: Long) {
+    /** 按档位安排自动停止；宽限为 0 表示「这个档位不使用后台 ticker」，立刻停。 */
+    private fun scheduleAutoStop(appContext: Context) {
         autoStopJob?.cancel()
+        val graceMs = PowerProfiles.forContext(appContext).widgetGraceMs
+        if (graceMs <= 0L) {
+            stop()
+            return
+        }
         autoStopJob = scope.launch {
             delay(graceMs)
             if (!foreground) stop()

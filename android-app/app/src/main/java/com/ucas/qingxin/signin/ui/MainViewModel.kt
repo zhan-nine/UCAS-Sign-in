@@ -14,9 +14,11 @@ import com.ucas.qingxin.signin.data.QrSnapshot
 import com.ucas.qingxin.signin.data.SignOutcome
 import com.ucas.qingxin.signin.data.UserSettings
 import com.ucas.qingxin.signin.network.ApiException
+import com.ucas.qingxin.signin.network.QingxinApiService
 import com.ucas.qingxin.signin.update.UpdateRelease
 import com.ucas.qingxin.signin.update.VersionTags
 import com.ucas.qingxin.signin.widget.TodayCourseWidgetReceiver
+import com.ucas.qingxin.signin.widget.WidgetRefreshScheduler
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -66,7 +68,27 @@ data class AppUiState(
     val excludedPermanent: Set<String> = emptySet(),
     /** 版本检查与更新提示。 */
     val update: UpdateUiState = UpdateUiState(),
+    /**
+     * 二维码为何处于「不自动取码」的状态。
+     *
+     * 1.2.1 起二维码只在**签到窗口内**取（见 `QrRefreshPolicy`），窗口之外界面上
+     * 不再挂着一张过期二维码，而是明确告诉用户「什么时候会有码」。没有这个字段，
+     * 界面只能在「正在同步…」的转圈里干等，看起来像卡住了。
+     */
+    val qrStandby: QrStandbyReason = QrStandbyReason.NONE,
 )
+
+/** 二维码的待机原因，决定卡片上的文案。 */
+enum class QrStandbyReason {
+    /** 正在正常取码（或今天已签完但保留最后一张码）。 */
+    NONE,
+
+    /** 未到签到窗口：进入窗口后会自动开始刷新。 */
+    WAITING_WINDOW,
+
+    /** 今日课程已全部签到完成：不再取新码，冻结显示最后一张供核对。 */
+    ALL_DONE,
+}
 
 /**
  * 「检查更新」的界面状态。
@@ -124,6 +146,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var qrTickJob: Job? = null
 
     /**
+     * 应用是否在前台。
+     *
+     * 由 `MainActivity` 的 `LifecycleResumeEffect` 维护。**这是 1.2.1 耗电治理的
+     * 开关**：1.2.0 的两条循环（倒计时 ticker 与二维码轮询）从 Activity 创建起
+     * 一直跑到销毁，与前后台无关 —— 锁屏后它们照样满速运行，单是 ticker 就
+     * 86.4 万次/天的主线程唤醒。
+     */
+    @Volatile
+    private var uiResumed = false
+
+    /**
+     * 主页是否可见。
+     *
+     * 二维码只在主页渲染，因此切到设置 / 讲座页时没有理由继续取码 ——
+     * 这是 `QrRefreshPolicy` 里 `visible` 的来源。
+     */
+    @Volatile
+    private var homeVisible = false
+
+    /**
      * 用户手动点选的课程 id。
      * null = 使用「当前课」作为默认二维码课程（会随时间窗口变化）；
      * 非 null = 固定展示该课二维码，绝不被自动逻辑覆盖。
@@ -145,6 +187,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
                     refreshCourses()
+                    startQrTicker()
                     startQrLoopIfNeeded()
                 } else {
                     _ui.update {
@@ -156,8 +199,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             }
-            startQrTicker()
         }
+    }
+
+    // ------------------------------------------------------------------ 前台可见性
+
+    /**
+     * 应用回到前台：启动倒计时 ticker，并在主页可见时按策略恢复取码。
+     *
+     * 刻意**不再**在这里无条件取一次码：窗口之外取回来的码扫了也没用
+     * （见 [QrRefreshPolicy]），界面改用 [AppUiState.qrStandby] 明确告知何时会有码，
+     * 并提供「立即获取」按钮让用户随时手动取（例如老师提前开了签到）。
+     */
+    fun onUiResumed() {
+        uiResumed = true
+        startQrTicker()
+        if (homeVisible) startQrLoopIfNeeded(force = true)
+    }
+
+    /** 应用退到后台：停掉两条循环。这是省电的关键一步。 */
+    fun onUiPaused() {
+        uiResumed = false
+        qrTickJob?.cancel()
+        qrRefreshJob?.cancel()
+    }
+
+    /** 当前页面变化：只有主页需要二维码。 */
+    fun onScreenChanged(home: Boolean) {
+        if (homeVisible == home) return
+        homeVisible = home
+        if (!uiResumed || !_ui.value.authenticated) return
+        if (home) startQrLoopIfNeeded(force = true) else qrRefreshJob?.cancel()
     }
 
     fun onStudentNoChange(v: String) = _ui.update { it.copy(studentNoInput = v) }
@@ -181,6 +253,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 refreshCourses()
+                startQrTicker()
                 startQrLoopIfNeeded()
                 TodayCourseWidgetReceiver.requestUpdate(getApplication())
             } catch (e: Exception) {
@@ -193,6 +266,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun logout() {
         qrRefreshJob?.cancel()
+        qrTickJob?.cancel()
         manualQrCourseId = null
         val studentNo = _ui.value.studentNo
         app.attendanceScheduler.stop()
@@ -385,8 +459,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             notifyEnabled = notify ?: cur.notifyEnabled,
             lowPowerMode = lowPower ?: cur.lowPowerMode,
         )
+        val profileChanged = next.lowPowerMode != cur.lowPowerMode
+        // saveSettings 内部会按需 start()/stop()，其中已包含 syncDaemon()。
         app.attendanceScheduler.saveSettings(next)
         _ui.update { it.copy(settings = next, keepAlive = app.attendanceScheduler.readKeepAliveState()) }
+        if (profileChanged) rescheduleForProfile()
         if (next.autoSignEnabled) {
             // 常驻通知的文案要立刻跟上开关变化（读本地缓存，放到 IO 线程避免主线程 I/O）。
             val courses = _ui.value.courses.ifEmpty { null }
@@ -399,19 +476,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * 刷新保活状态；并借「应用已在前台」这个时机重试一次守护服务。
+     * 切换耗电档位后的显式重排。
      *
-     * 冷启动（例如被小部件宿主拉起）时启动前台服务会被系统拒绝，
-     * 那时标记的「服务被拒」状态会在这里被纠正 —— 用户把 App 切到前台即可自愈。
+     * 三件事都**必须**做，因为它们用的都是「已排过就不重排」的语义：
+     * 小部件的周期任务用 `UPDATE`（会替换间隔，但不主动调用就不会重排）、
+     * 讲座巡检用 `KEEP`（**根本改不动**已排好的间隔）、
+     * 小部件进程内 ticker 的宽限时长随档位变化（省电档是「不使用」）。
+     * 不重排的话，用户切到省电模式后小部件与讲座巡检仍按普通档的节奏唤醒。
+     */
+    private fun rescheduleForProfile() {
+        val context = getApplication<Application>()
+        runCatching { WidgetRefreshScheduler.reschedule(context) }
+        runCatching {
+            com.ucas.qingxin.signin.attendance.LectureNoticeWatcher.reschedulePeriodicWork(context)
+        }
+        runCatching { app.attendanceScheduler.syncDaemon() }
+    }
+
+    /**
+     * 刷新保活状态；并借「应用已在前台」这个时机重排一次调度。
+     *
+     * 1.2.0 在这里无条件 `start()`（＝拉起守护服务）来兜底「冷启动时前台服务被拒」的情形。
+     * 1.2.1 起不再这样做了：守护服务只在临近签到窗口时才该存在
+     * （见 [com.ucas.qingxin.signin.attendance.AttendanceScheduler.syncDaemon]），
+     * 每次开 App 都把它拉起来会让进程整天不被系统冻结 —— 那正是耗电报告的根因。
+     * 现在这里只做「重算闹钟 + 让守护服务回到它该有的状态」。
      */
     fun refreshKeepAlive() {
         if (!app.isReady) return
         // 放到 IO 线程：这里会读本地缓存与系统状态，不应阻塞 onResume 的渲染。
         viewModelScope.launch(Dispatchers.IO) {
-            val settings = app.attendanceScheduler.getSettings()
-            if (settings.autoSignEnabled && !settings.lowPowerMode) {
-                app.attendanceScheduler.start()
-            }
+            runCatching { app.attendanceScheduler.ensureSchedule() }
+            runCatching { app.attendanceScheduler.syncDaemon() }
             val state = app.attendanceScheduler.readKeepAliveState()
             _ui.update { it.copy(keepAlive = state) }
         }
@@ -478,15 +574,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * 也发一次无意义的网络请求。
      *
      * ## 节流
-     * 12 小时内最多检查一次。节流是必须的：主页在每次从子页面返回时都会重组，
+     * 24 小时内最多检查一次（间隔来自耗电档位，见 `PowerProfile.updateCheckIntervalMs`）。
+     * 节流是必须的：主页在每次从子页面返回时都会重组，
      * 没有节流就会变成「点一次返回就查一次 GitHub」。
      * 首次启动（[UpdateUiState.lastCheckedAtMs] 为 0）不节流，保证装完就有结论。
      */
     fun onEnterHome() {
         val update = _ui.value.update
         if (!update.autoCheck) return
+        val interval = if (app.isReady) {
+            app.powerProfile().updateCheckIntervalMs
+        } else {
+            AUTO_CHECK_INTERVAL_FALLBACK_MS
+        }
         val now = System.currentTimeMillis()
-        if (update.lastCheckedAtMs > 0 && now - update.lastCheckedAtMs < AUTO_CHECK_INTERVAL_MS) return
+        if (update.lastCheckedAtMs > 0 && now - update.lastCheckedAtMs < interval) return
         checkForUpdate(auto = true)
     }
 
@@ -631,10 +733,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ?: courses.firstOrNull()
     }
 
+    /**
+     * 倒计时心跳。
+     *
+     * 1.2.1 的两处改动：
+     * - 间隔由固定 `delay(100)`（10 Hz）改为 [QrRefreshPolicy.tickMs]：
+     *   **有二维码时 1 Hz**（倒计时环需要秒级），**没有二维码时 30 秒**
+     *   （课程标签是分钟粒度，30 秒足够）。1.2.0 的 10 Hz 是 86.4 万次/天的主线程唤醒；
+     * - 只在**前台且已登录**时运行。未登录时主页根本不显示二维码，空转毫无意义。
+     *   `viewModelScope` 跑在 `Dispatchers.Main.immediate`，不停掉它就会一直占用主线程。
+     */
     private fun startQrTicker() {
         qrTickJob?.cancel()
+        if (!uiResumed || !_ui.value.authenticated) return
         qrTickJob = viewModelScope.launch {
             while (isActive) {
+                if (!uiResumed) break
                 val snap = app.qrTimeline.snapshot.value
                 if (snap != null) {
                     val remainMs = (snap.expiresAtLocalMs - System.currentTimeMillis()).coerceAtLeast(0L)
@@ -653,7 +767,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 refreshScheduleLabels()
-                delay(100)
+                delay(QrRefreshPolicy.tickMs(snap != null))
             }
         }
     }
@@ -693,8 +807,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * 二维码循环：由 [QrRefreshPolicy] 驱动，而不是「固定 5 秒轮询」。
+     *
+     * 三条早退条件合起来覆盖了 1.2.0 的绝大部分浪费：
+     * 未登录 / 应用不在前台 / 当前不在主页 —— 三种情况下都**不取码**。
+     * 之后再由策略决定「现在取码」「睡到窗口开始」「今天不用取了」。
+     */
     private fun startQrLoopIfNeeded(force: Boolean = false) {
-        if (!_ui.value.authenticated) {
+        if (!isQrVisibleNow()) {
             qrRefreshJob?.cancel()
             return
         }
@@ -702,6 +823,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         qrRefreshJob?.cancel()
         qrRefreshJob = viewModelScope.launch {
             while (isActive) {
+                if (!isQrVisibleNow()) break
                 val displayNow = System.currentTimeMillis()
                 val courses = _ui.value.courses
                 val (current, next) = app.courseRepository.currentAndNext(courses, displayNow)
@@ -709,9 +831,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _ui.update { it.copy(current = current, next = next) }
                 }
 
+                // 手动选择若已不在列表中，回到默认（否则会一直卡在一门不存在的课上）。
+                if (manualQrCourseId != null && courses.none { it.id == manualQrCourseId }) {
+                    manualQrCourseId = null
+                }
+
                 val target = resolveQrCourse(courses, current, next)
                 if (target == null) {
-                    // 无课时清空二维码；有课则始终刷新（含已签到），避免时间轴空白
+                    // 真的没有课：清空二维码，低频回探。
                     if (_ui.value.qr != null || _ui.value.selected != null) {
                         _ui.update {
                             it.copy(
@@ -719,10 +846,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 qr = null,
                                 qrRemaining = 0.0,
                                 qrProgress = 0f,
+                                qrStandby = QrStandbyReason.NONE,
                             )
                         }
                     }
-                    delay(5_000)
+                    delay(QrRefreshPolicy.IDLE_TICK_MS)
                     continue
                 }
                 // 自动模式：同步默认选中；手动模式：绝不改成别的课
@@ -740,45 +868,132 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     target
                 }
-                try {
-                    val key = courseForQr.id.ifBlank { courseForQr.uuid }
-                    val snap = app.qrTimeline.refreshQr(key)
-                    coroutineContext.ensureActive()
-                    val schoolNow = app.qrTimeline.currentSchoolTimeOrNull()
-                    val remainMs = (snap.expiresAtLocalMs - System.currentTimeMillis()).coerceAtLeast(0L)
-                    _ui.update {
-                        it.copy(
-                            selected = courseForQr,
-                            qr = snap,
-                            qrRemaining = remainMs / 1000.0,
-                            qrProgress = if (snap.validityDurationMs > 0) {
-                                remainMs.toFloat() / snap.validityDurationMs.toFloat()
-                            } else {
-                                0f
-                            },
-                            schoolNowLabel = schoolNow?.toString().orEmpty(),
-                            status = app.attendanceRepository.uiStatus(courseForQr, schoolNow ?: displayNow),
-                            error = "",
-                        )
+
+                when (val decision = decideQrWork()) {
+                    QrRefreshPolicy.Decision.Idle -> {
+                        // 今天没有需要新码的课：**保留最后一张码**供核对，只是不再刷新。
+                        // 1.2.0 在这里每 5 秒重取一次，是纯粹的浪费。
+                        _ui.update { it.copy(qrStandby = QrStandbyReason.ALL_DONE) }
+                        break
                     }
-                    val wait = (snap.expiresAtLocalMs - System.currentTimeMillis()).coerceAtLeast(200L)
-                    delay(wait)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    _ui.update { it.copy(error = e.message ?: "QR 同步失败") }
-                    delay(2_000)
+                    is QrRefreshPolicy.Decision.Wait -> {
+                        _ui.update {
+                            it.copy(
+                                qrStandby = if (decision.ms > QrRefreshPolicy.ACTIVE_REFRESH_CAP_MS) {
+                                    QrStandbyReason.WAITING_WINDOW
+                                } else {
+                                    QrStandbyReason.NONE
+                                },
+                            )
+                        }
+                        delay(decision.ms)
+                    }
+                    QrRefreshPolicy.Decision.Refresh -> {
+                        _ui.update { it.copy(qrStandby = QrStandbyReason.NONE) }
+                        try {
+                            fetchQrInto(courseForQr, displayNow)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            _ui.update { it.copy(error = e.message ?: "QR 同步失败") }
+                            delay(2_000)
+                        }
+                    }
                 }
             }
         }
     }
+
+    /**
+     * 手动「立即获取二维码」。
+     *
+     * 存在的意义：万一老师提前开了签到窗口（我们算出的窗口之外），
+     * 用户不该被策略锁死 —— 一次手动点击就能拿到码。这也是「省电不退让能力」
+     * 这条底线在二维码上的落地。
+     */
+    fun refreshQrNow() {
+        val course = _ui.value.selected ?: _ui.value.current ?: return
+        viewModelScope.launch {
+            _ui.update { it.copy(error = "", qrStandby = QrStandbyReason.NONE) }
+            try {
+                fetchQrInto(course, System.currentTimeMillis())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _ui.update { it.copy(error = e.message ?: "二维码同步失败") }
+            }
+            startQrLoopIfNeeded(force = true)
+        }
+    }
+
+    /** 取一次二维码并写进界面状态。 */
+    private suspend fun fetchQrInto(course: Course, displayNow: Long) {
+        val key = course.id.ifBlank { course.uuid }
+        val snap = app.qrTimeline.refreshQr(key)
+        coroutineContext.ensureActive()
+        val schoolNow = app.qrTimeline.currentSchoolTimeOrNull()
+        val remainMs = (snap.expiresAtLocalMs - System.currentTimeMillis()).coerceAtLeast(0L)
+        _ui.update {
+            it.copy(
+                selected = course,
+                qr = snap,
+                qrRemaining = remainMs / 1000.0,
+                qrProgress = if (snap.validityDurationMs > 0) {
+                    remainMs.toFloat() / snap.validityDurationMs.toFloat()
+                } else {
+                    0f
+                },
+                schoolNowLabel = schoolNow?.toString().orEmpty(),
+                status = app.attendanceRepository.uiStatus(course, schoolNow ?: displayNow),
+                error = "",
+            )
+        }
+    }
+
+    /** 现在是否「值得」为二维码发请求：已登录 + 应用在前台 + 停留在主页。 */
+    private fun isQrVisibleNow(): Boolean =
+        _ui.value.authenticated && uiResumed && homeVisible
+
+    /** 组装策略输入。窗口与 `CourseRepository.isWithinQrLockWindow` 完全一致（开课前 25 分钟至下课）。 */
+    private fun decideQrWork(): QrRefreshPolicy.Decision = QrRefreshPolicy.decide(
+        nowMs = System.currentTimeMillis(),
+        visible = isQrVisibleNow(),
+        windows = qrWindows(),
+        qrExpiresAtMs = app.qrTimeline.snapshot.value?.expiresAtLocalMs,
+    )
+
+    /**
+     * 所有「还能签到」的课的签到窗口。
+     *
+     * 已签到的课**不在其中**：它们不需要新码（界面上仍冻结显示最后一张）。
+     * 时间解析不出来的课以 `null` 起止带入，由策略按「随时可取」处理 ——
+     * 不能因为一条脏数据就永远不出码。
+     */
+    private fun qrWindows(): List<QrRefreshPolicy.Window> {
+        val courses = _ui.value.courses
+        if (courses.isEmpty()) return emptyList()
+        return courses.asSequence()
+            .filter { !it.signed }
+            .map { course ->
+                val begin = runCatching { app.courseRepository.parseBeginMs(course) }.getOrNull()
+                val end = runCatching { app.courseRepository.parseEndMs(course) }.getOrNull()
+                if (begin == null || end == null) {
+                    QrRefreshPolicy.Window(null, null)
+                } else {
+                    QrRefreshPolicy.Window(begin - QingxinApiService.SIGN_WINDOW_LEAD_MS, end)
+                }
+            }
+            .toList()
+    }
 }
 
 /**
- * 自动检查更新的节流间隔（12 小时）。
+ * 「自动检查更新」节流间隔的**兜底值**（24 小时）。
  *
- * 12 小时是一个刻意偏保守的值：应用发版以天为单位，而主页在每次从子页面
+ * 正常取值来自耗电档位（`PowerProfile.updateCheckIntervalMs`）；这个常量只在
+ * `QingxinApp` 初始化失败、读不到设置时使用。
+ * 24 小时是刻意偏保守的值：应用发版以天为单位，而主页在每次从子页面
  * 返回时都会重组 —— 没有节流就会变成「点一次返回就查一次 GitHub」。
  * 手动的「检查更新」按钮不受它限制，用户想立刻知道结果随时可以问。
  */
-private const val AUTO_CHECK_INTERVAL_MS = 12L * 60L * 60L * 1000L
+private const val AUTO_CHECK_INTERVAL_FALLBACK_MS = 24L * 60L * 60L * 1000L

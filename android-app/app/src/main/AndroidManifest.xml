@@ -191,7 +191,7 @@
             </intent-filter>
         </receiver>
 
-        <!-- 自动签到：每节课 1 个精确闹钟（显式 PendingIntent，无需 intent-filter） -->
+        <!-- 自动签到：每节课 2 个精确闹钟（提醒槽 + 签到槽，均为显式 PendingIntent，无需 intent-filter） -->
         <receiver
             android:name=".attendance.AutoSignAlarmReceiver"
             android:enabled="true"

@@ -67,14 +67,20 @@ internal object AutoSignEngine {
     /** 本地课程数据在这个时长内视为新鲜，直接复用、不发网络。 */
     private const val CACHE_FRESH_MS = 10L * 60L * 1000L
 
-    /** 每个课次允许的签到请求总次数上限。 */
+    /** 每个课次允许的签到请求总次数上限（普通档）。档位解析见 [PowerProfiles]。 */
     const val MAX_ATTEMPTS = 8
 
-    /** 系统省电模式下收敛预算，避免做无用功。 */
-    private const val MAX_ATTEMPTS_POWER_SAVE = 3
+    /** 前置提醒的提前量：**上课前 15 分钟**（与签到窗口开启时刻的关系见 [remindAtFor]）。 */
+    const val UPCOMING_LEAD_MS = 15L * 60L * 1000L
 
-    /** 前置提醒的提前量：随机时刻前 2 分钟。 */
-    const val UPCOMING_LEAD_MS = 2L * 60L * 1000L
+    /**
+     * 提醒与「实际签到时刻」之间必须保留的最小间隔。
+     *
+     * 见 [remindAtFor] 的边界说明：随机签到时刻的下界正好是「上课前 15 分钟」，
+     * 因此提醒有可能和签到撞在同一瞬间。撞上时提醒已失去意义（用户看到
+     * 「即将自动签到」的同时它已经签完了），所以宁可把提醒往前挪一点。
+     */
+    private const val MIN_REMIND_GAP_MS = 60L * 1000L
 
     /**
      * 未取得电池豁免时，Doze 会把 `setAndAllowWhileIdle` 推迟最多约 15 分钟。
@@ -160,7 +166,7 @@ internal object AutoSignEngine {
         }
         val key = keyOf(courseIdOf(due), today)
         val targetMs = targetOf(due, begin)
-        announceUpcoming(app, due, targetMs)
+        announceUpcoming(app, due, begin, targetMs)
 
         val cap = attemptCap(context)
         val used = attempts[key] ?: 0
@@ -232,8 +238,7 @@ internal object AutoSignEngine {
     }
 
     /** 今日下一个待签课次（含已冻结的随机时刻）。用于排闹钟与守护服务计时。 */
-    fun nextDue(app: QingxinApp, courses: List<Course>? = null): DueCourse? {
-        if (!app.isReady) return null
+    fun nextDue(app: QingxinApp, courses: List<Course>? = null): DueCourse? {        if (!app.isReady) return null
         val list = effectiveCourses(app, courses) ?: return null
         if (list.isEmpty()) return null
         val today = AutoSignRandomizer.todayKey()
@@ -247,6 +252,27 @@ internal object AutoSignEngine {
         val begin = parseBegin(picked.first) ?: return null
         return DueCourse(picked.first, begin, picked.second)
     }
+
+    /**
+     * 守护服务现在是否「值得」活着。
+     *
+     * 三个条件缺一不可：自动签到开着、当前档位允许常驻服务（省电档不允许）、
+     * 且下一节课的提醒时刻已经进入 [DAEMON_LOOKAHEAD_MS] 之内。
+     *
+     * 最后一条是 1.2.1 的新约束，也是耗电治理的核心：1.2.0 里每次打开 App 都会
+     * 拉起这个前台服务，它带着常驻通知活一整天，系统因此**既不冻结也不回收**进程，
+     * 与前台无关的循环就能整夜满速运行。现在它只在签到窗口前后存在。
+     */
+    fun shouldRunDaemon(app: QingxinApp, nowMs: Long = System.currentTimeMillis()): Boolean {
+        if (!app.isReady) return false
+        if (!app.attendanceScheduler.getSettings().autoSignEnabled) return false
+        if (!app.powerProfile().daemonEnabled) return false
+        val due = runCatching { nextDue(app) }.getOrNull() ?: return false
+        return remindAtFor(due) - nowMs <= DAEMON_LOOKAHEAD_MS
+    }
+
+    /** 守护服务提前多久进入「值得存活」的状态。 */
+    private const val DAEMON_LOOKAHEAD_MS = 10L * 60L * 1000L
 
     /** 常驻通知文案。唤醒成本为零，只在进程本来就醒着时调用。 */
     fun daemonStatusText(context: Context, app: QingxinApp, courses: List<Course>? = null): String {
@@ -293,12 +319,93 @@ internal object AutoSignEngine {
     /** 返回 true 表示本次是第一次标记（调用方据此决定是否发通知）。 */
     private fun markNotified(key: String): Boolean = notified.putIfAbsent(key, true) == null
 
-    private fun attemptCap(context: Context): Int =
-        if (isPowerSaveMode(context)) MAX_ATTEMPTS_POWER_SAVE else MAX_ATTEMPTS
+    /**
+     * 「签到前提醒」的时刻：**上课前 15 分钟**。
+     *
+     * ## 为什么是「相对上课时刻」而不是「相对随机签到时刻」
+     * 随机签到时刻每节课都不同（`[上课前15分钟, 上课前30秒]` 内均匀随机），
+     * 以它为基准的提醒（1.2.0 是「随机时刻前 2 分钟」）意味着用户**无法预知**
+     * 什么时候会收到通知，也就无法据此安排自己的动作。改成固定相对上课时刻，
+     * 用户看到通知就知道「还有 15 分钟上课，签到即将开始」。
+     *
+     * ## 与签到窗口的关系
+     * 签到窗口从**上课前 25 分钟**开启，因此「上课前 15 分钟」落在窗口内部，
+     * 提醒发出时窗口已经开放 —— 用户收到通知后立刻手动签到也是有效的。
+     *
+     * ## 边界钳制
+     * [AutoSignRandomizer] 的随机下界正好是 `上课前 15 分钟`，所以随机时刻有可能
+     * 落在提醒点上（甚至更早，当随机值被 `nowMs + 30 秒` 的下界推后、
+     * 而进程直到临近上课才算出来时）。此时提醒与签到会撞在同一瞬间，
+     * 而「即将自动签到」的通知在签完之后才看到是没有意义的，
+     * 因此这里保证提醒至少比签到早 [MIN_REMIND_GAP_MS]。
+     *
+     * 钳制只会让提醒**更早**，永远不会更晚；并且因为签到窗口 25 分钟才开启，
+     * 即便提前到 16 分钟前，仍处在窗口内。
+     */
+    fun remindAtFor(beginMs: Long, targetMs: Long): Long =
+        minOf(beginMs - UPCOMING_LEAD_MS, targetMs - MIN_REMIND_GAP_MS)
 
-    private fun isPowerSaveMode(context: Context): Boolean = runCatching {
-        (context.getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isPowerSaveMode == true
-    }.getOrDefault(false)
+    /** [remindAtFor] 的 `DueCourse` 语法糖。 */
+    fun remindAtFor(due: DueCourse): Long = remindAtFor(due.beginMs, due.targetMs)
+
+    /**
+     * 由提醒闹钟调用：找出此刻该提醒的课次并发出提醒。
+     *
+     * ## 为什么提醒要有独立闹钟
+     * 1.2.0 里提醒是守护服务 `delay` 睡到点时**顺带发出**的
+     * （见 `AttendanceDaemonService.arm()`），而省电档根本没有守护服务，
+     * 于是省电档**完全收不到提醒**。拆成独立闹钟后两档都能收到，
+     * 且这条路径**不联网、不启服务**，唤醒成本接近 0。
+     *
+     * ## 容差
+     * 部分 ROM 的非精确闹钟会提前几秒到几十秒触发。若窗口卡死在提醒时刻上，
+     * 提前触发就会让提醒**整体丢失**，因此下界留 [REMIND_TOLERANCE_MS] 的余量。
+     *
+     * @return 是否真的发出了（便于单测断言）。
+     */
+    fun remindNow(app: QingxinApp, nowMs: Long = System.currentTimeMillis()): Boolean {
+        if (!app.isReady) return false
+        if (!app.attendanceScheduler.getSettings().autoSignEnabled) return false
+        val due = runCatching { nextDue(app) }.getOrNull() ?: return false
+        return notifyUpcoming(app, due.course, due.beginMs, due.targetMs, nowMs)
+    }
+
+    /**
+     * 发出「即将开始签到」的前置提醒。
+     *
+     * 两条调用路径共用：提醒闹钟（[remindNow]）与守护服务进程内定时器
+     * （[announceUpcoming]）。去重沿用 [notified]，且键带 `upcoming:` 前缀，
+     * 与终态结果通知互不影响，因此两者在同一分钟触发也只会发一条。
+     *
+     * @return 本次是否真的发出了（便于单测断言）。
+     */
+    fun notifyUpcoming(
+        app: QingxinApp,
+        course: Course,
+        beginMs: Long,
+        targetMs: Long,
+        nowMs: Long = System.currentTimeMillis(),
+    ): Boolean {
+        if (course.signed) return false
+        // 有效窗口 = 「提醒时刻（含容差）」到「签到时刻」之间。
+        // 上界必须是 targetMs 而不是「固定 15 分钟」：随机时刻可能比提醒点晚十几分钟
+        // （最晚到上课前 30 秒），用固定上界会把这些课次的提醒整体丢掉。
+        val remindAt = remindAtFor(beginMs, targetMs)
+        if (nowMs < remindAt - REMIND_TOLERANCE_MS || nowMs >= targetMs) return false
+        if (!app.attendanceScheduler.getSettings().autoSignEnabled) return false
+        val key = upcomingKeyOf(courseIdOf(course), AutoSignRandomizer.todayKey())
+        if (!markNotified(key)) return false
+        runCatching { app.notifier.notifyAutoSignUpcoming(course.id, course.name, targetMs) }
+        return true
+    }
+
+    /** 提醒闹钟可能被 ROM 提前触发，留出余量避免提醒整体丢失。 */
+    private const val REMIND_TOLERANCE_MS = 60L * 1000L
+
+    private fun attemptCap(context: Context): Int {
+        val app = context.applicationContext as? QingxinApp ?: return MAX_ATTEMPTS
+        return app.powerProfile().maxAttempts
+    }
 
     /** 未取得电池豁免时允许「提前一点签」，以对冲 Doze 对非精确闹钟的推迟。 */
     private fun earlyToleranceMs(context: Context): Long =
@@ -377,12 +484,14 @@ internal object AutoSignEngine {
         refreshDaemonStatus(context, app, null)
     }
 
-    /** 签到前提醒：仅在进程本就醒着时顺带发出，**绝不排专用闹钟**。 */
-    private fun announceUpcoming(app: QingxinApp, course: Course, targetMs: Long) {
-        val remain = targetMs - System.currentTimeMillis()
-        if (remain !in 1..UPCOMING_LEAD_MS) return
-        if (!markNotified(upcomingKeyOf(courseIdOf(course), AutoSignRandomizer.todayKey()))) return
-        runCatching { app.notifier.notifyAutoSignUpcoming(course.id, course.name, targetMs) }
+    /**
+     * 签到前提醒（守护服务路径）。
+     *
+     * 只在进程**本就醒着**时顺带发出，绝不因此排专用闹钟 ——
+     * 专用提醒闹钟由 [AttendanceScheduler] 负责，两档都有。
+     */
+    private fun announceUpcoming(app: QingxinApp, course: Course, beginMs: Long, targetMs: Long) {
+        notifyUpcoming(app, course, beginMs, targetMs)
     }
 
     /**

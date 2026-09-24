@@ -131,8 +131,8 @@ android {
         minSdk = 26
         targetSdk = 35
         // versionCode 必须单调递增：任何低于已装版本的数值都会导致无法覆盖安装。
-        versionCode = 41
-        versionName = "1.2.0"
+        versionCode = 42
+        versionName = "1.2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // 端点来自本地 local.properties，绝不硬编码（见文件顶部说明）。

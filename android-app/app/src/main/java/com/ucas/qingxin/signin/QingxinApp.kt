@@ -9,6 +9,8 @@ import com.ucas.qingxin.signin.attendance.AttendanceRepository
 import com.ucas.qingxin.signin.attendance.AttendanceScheduler
 import com.ucas.qingxin.signin.attendance.AutoSignExclusionStore
 import com.ucas.qingxin.signin.attendance.LectureNoticeWatcher
+import com.ucas.qingxin.signin.attendance.PowerProfiles
+import com.ucas.qingxin.signin.attendance.ResolvedPowerProfile
 import com.ucas.qingxin.signin.auth.AuthRepository
 import com.ucas.qingxin.signin.auth.SecureCredentialStore
 import com.ucas.qingxin.signin.course.CourseRepository
@@ -97,6 +99,8 @@ class QingxinApp : Application() {
         if (isReady) {
             runCatching {
                 if (attendanceScheduler.getSettings().autoSignEnabled) {
+                    // start() 内部按档位与「是否临近签到」决定守护服务去留
+                    // （见 AttendanceScheduler.syncDaemon），不会留下整天的常驻服务。
                     attendanceScheduler.start()
                 }
             }
@@ -104,11 +108,35 @@ class QingxinApp : Application() {
             // 这里无条件调一次，既能覆盖「开关是上一版留下的、任务还没登记过」，
             // 也能自愈被系统清掉的任务；两个开关都关时它会自行撤销任务。
             runCatching { LectureNoticeWatcher.syncPeriodicWork(this) }
+            // 档位与上次不同（首次升级到 1.2.1、或用户在系统里切换了省电）时改写间隔。
+            runCatching { syncPowerProfileIfChanged() }
         }
         // 进程被宿主拉起的常见原因就是小部件需要重绘：对齐刷新链路并立刻重绘一次。
         runCatching { WidgetRefreshScheduler.sync(this) }
         runCatching { WidgetUpdater.refreshLocal(this) }
         registerActivityLifecycleCallbacks(WidgetTickerLifecycle)
+    }
+
+    /**
+     * 档位变化时重排后台任务。
+     *
+     * ## 为什么要记「上次用的档位」而不是每次启动都重排
+     * 讲座巡检与更新检查都是**周期**任务，`cancel + enqueue` 会把下一个执行时刻
+     * 从现在重新计时。若每次开 App 都重排，用得越勤的用户越会发现它们从不执行
+     * （每次都被推后半天）。只有档位**真的变了**才需要改写间隔。
+     *
+     * 覆盖两种情形：升级到本版后首次启动（旧的周期任务还按 1.2.0 的 12 小时 / 15 分钟
+     * 跑着），以及用户在应用外切换了系统省电模式。
+     */
+    private fun syncPowerProfileIfChanged() {
+        val resolved = powerProfile()
+        val prefs = getSharedPreferences(POWER_PREFS, MODE_PRIVATE)
+        val token = "${resolved.profile.name}:${resolved.systemPowerSave}"
+        if (prefs.getString(KEY_LAST_PROFILE, null) == token) return
+        prefs.edit().putString(KEY_LAST_PROFILE, token).apply()
+        runCatching { WidgetRefreshScheduler.reschedule(this) }
+        runCatching { LectureNoticeWatcher.reschedulePeriodicWork(this) }
+        runCatching { attendanceScheduler.syncDaemon() }
     }
 
     /**
@@ -137,6 +165,17 @@ class QingxinApp : Application() {
         override fun onActivityDestroyed(activity: Activity) = Unit
     }
 
+    /**
+     * 当前生效的耗电档位（用户设置 + 系统省电策略）。
+     *
+     * 所有刷新间隔的唯一来源：小部件、讲座巡检、更新检查、签到重试预算都从这里取，
+     * 而不是各自写常量 —— 否则「省电模式」就会像 1.2.0 那样名不副实。
+     */
+    fun powerProfile(): ResolvedPowerProfile = PowerProfiles.resolve(
+        settings = attendanceScheduler.getSettings(),
+        systemPowerSave = PowerProfiles.isSystemPowerSave(this),
+    )
+
     private fun buildDependencies() {
         api = QingxinApiService()
         credentialStore = SecureCredentialStore(this)
@@ -159,6 +198,10 @@ class QingxinApp : Application() {
 
     companion object {
         private const val TAG = "QingxinApp"
+
+        /** 「上次生效的耗电档位」记在这里，用于判断是否需要重排后台任务。 */
+        private const val POWER_PREFS = "power_profile_state"
+        private const val KEY_LAST_PROFILE = "last_profile"
 
         lateinit var instance: QingxinApp
             private set

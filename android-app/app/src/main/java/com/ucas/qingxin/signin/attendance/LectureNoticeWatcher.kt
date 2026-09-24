@@ -103,11 +103,15 @@ object LectureNoticeWatcher {
      *
      * 幂等：用 [ExistingPeriodicWorkPolicy.KEEP] 保证重复调用不会重置已排好的节奏，
      * 因此在应用启动时无条件调用一次是安全的（也能自愈被系统清掉的任务）。
+     *
+     * 间隔来自耗电档位（[PowerProfile.lectureCheckHours]）。注意 `KEEP` **改不动**
+     * 已排好的间隔，所以切档时必须走 [reschedulePeriodicWork]。
      */
     fun ensurePeriodicWork(context: Context) {
         if (!isEnabled(context) && !LectureSentinel.isEnabled(context)) return
+        val hours = PowerProfiles.forContext(context).lectureCheckHours
         runCatching {
-            val request = PeriodicWorkRequestBuilder<LectureNoticeWorker>(CHECK_INTERVAL_HOURS, TimeUnit.HOURS)
+            val request = PeriodicWorkRequestBuilder<LectureNoticeWorker>(hours, TimeUnit.HOURS)
                 .setConstraints(
                     Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -120,6 +124,21 @@ object LectureNoticeWatcher {
                 request,
             )
         }
+    }
+
+    /**
+     * 按当前档位重新登记周期任务（切换耗电档位时调用）。
+     *
+     * 先撤销再登记：`ensurePeriodicWork` 的 `KEEP` 语义决定了它无法改写已排好的间隔，
+     * 不撤销的话「省电模式」下讲座巡检还是 24 小时，切档形同虚设。
+     */
+    fun reschedulePeriodicWork(context: Context) {
+        if (!isEnabled(context) && !LectureSentinel.isEnabled(context)) {
+            cancelPeriodicWork(context)
+            return
+        }
+        cancelPeriodicWork(context)
+        ensurePeriodicWork(context)
     }
 
     /** 撤销周期检查任务。见 [setEnabled]。 */
@@ -213,9 +232,6 @@ object LectureNoticeWatcher {
     private const val SEPARATOR_OF_KEY = '|'
 
     private const val DATE_LENGTH = 10
-
-    /** 后台检查的间隔：人文学院两个栏目一周只发几条，一天查两次足够及时。 */
-    private const val CHECK_INTERVAL_HOURS = 12L
 
     /** 周期任务的唯一名（`WorkManager` 用它去重）。 */
     private const val WORK_NAME = "lecture_notice_check"

@@ -42,6 +42,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.ucas.qingxin.signin.lecture.LectureEventKind
 import com.ucas.qingxin.signin.lecture.LecturePortal
 import com.ucas.qingxin.signin.lecture.LectureSessionBootstrap
@@ -254,6 +257,24 @@ fun LectureScheduleScreen(
             }
             webView = null
         }
+    }
+
+    // WebView 跟随宿主生命周期暂停 / 恢复。
+    //
+    // 嵌入的 xkcts 页面里有 JS 定时器（课表轮询、验证码刷新）。不挂这对回调的话，
+    // 用户把应用切到后台后那些定时器**照常运行** —— 页面不可见、结果也用不上，
+    // 却持续占 CPU。这是 1.2.1 耗电治理在 WebView 上的对应措施。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> webView?.onPause()
+                Lifecycle.Event.ON_RESUME -> webView?.onResume()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 }
 

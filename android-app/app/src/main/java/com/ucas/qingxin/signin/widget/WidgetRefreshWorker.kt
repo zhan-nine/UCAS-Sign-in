@@ -14,6 +14,9 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.ucas.qingxin.signin.QingxinApp
+import com.ucas.qingxin.signin.attendance.PowerProfile
+import com.ucas.qingxin.signin.attendance.PowerProfiles
+import com.ucas.qingxin.signin.attendance.ResolvedPowerProfile
 import com.ucas.qingxin.signin.network.QingxinApiService
 import java.time.LocalDate
 import java.time.ZoneId
@@ -28,18 +31,20 @@ import java.util.concurrent.TimeUnit
  *
  * 1. **进程内定时器**（[WidgetTicker]，60s）：只做**本地重绘**（零网络、零 IPC），
  *    让「当前课 / 签到窗口 / 下一节」随时间自然切换。应用在前台时最及时，
- *    退出前台后保留几分钟宽限再停，避免常驻耗电。
+ *    退出前台后按档位保留一段宽限（省电档直接关掉）再停。
  * 2. **边界闹钟**（[AlarmManager]）：在每节课的「开课前 25 分钟 / 上课 / 下课」
  *    以及「次日零点」各触发一次，使内容在**语义发生变化的那一刻**更新，
  *    而不是等下一个固定周期。
- * 3. **数据兜底闹钟**：若近期没有课时边界，最多 10 分钟抓一次数据，保证
+ * 3. **数据兜底闹钟**：若近期没有课时边界，最多隔这么久抓一次数据，保证
  *    「今天临时加了课」「别人替你签到了」这类变化能被带进来。
- *    自动签到守护进程存活时，该间隔自动放宽到 45 分钟
- *    （见 [setDaemonActive]）—— 守护进程本身就是精确唤醒通道，不需要小部件再兜底。
- * 4. **WorkManager 周期任务**（15 分钟）：进程被杀、闹钟被 ROM 掐掉后的最终兜底。
+ *    间隔来自耗电档位（[PowerProfile.widgetFallbackMs]）。
+ * 4. **WorkManager 周期任务**（默认 60 分钟）：进程被杀、闹钟被 ROM 掐掉后的最终兜底。
+ *    间隔同样来自档位。
  *
  * 另外 provider 里的 `updatePeriodMillis` 也保留着，让宿主（桌面/负一屏）
- * 定期再推一次刷新——这是唯一不依赖本应用进程存活的标准刷新通道。
+ * 定期再推一次刷新 —— 这是唯一不依赖本应用进程存活的标准刷新通道。
+ * **它由宿主读取，无法按档位在运行时改变**，因此固定为
+ * [PowerProfile.WIDGET_UPDATE_PERIOD_XML_MILLIS]（见 `res/xml/`）。
  */
 internal object WidgetRefreshScheduler {
 
@@ -57,19 +62,6 @@ internal object WidgetRefreshScheduler {
     /** [sync] 时若数据超过这么久没更新，就顺带抓一次（例如冷启动渲染小部件时）。 */
     private const val SYNC_DATA_INTERVAL_MS = 5L * 60L * 1000L
 
-    /** 数据兜底：近期没有课时边界时，最多隔这么久抓一次。 */
-    private const val DATA_FALLBACK_MS = 10L * 60L * 1000L
-
-    /**
-     * 自动签到守护进程存活时的数据兜底间隔。
-     *
-     * 守护进程本身就是一条「随时能精确唤醒」的通道，因此小部件不需要再靠
-     * 每 10 分钟一次的 `RTC_WAKEUP` 兜底 —— 这一条单独就省掉约 100+ 次/天唤醒。
-     * 内容仍然由课时边界闹钟（开课前 25 分钟 / 上课 / 下课 / 次日 00:02）
-     * 与守护进程事件驱动刷新，**不会变旧**。
-     */
-    private const val DAEMON_FALLBACK_MS = 45L * 60L * 1000L
-
     /** 进程内定时器触发数据抓取的间隔。 */
     private const val TICKER_DATA_INTERVAL_MS = 5L * 60L * 1000L
 
@@ -79,10 +71,15 @@ internal object WidgetRefreshScheduler {
 
     /**
      * 自动签到守护进程是否存活（由 `AttendanceDaemonService` 维护）。
-     * 存活时把数据兜底闹钟从 10 分钟抬到 45 分钟，显著降低唤醒次数。
+     * 存活时把数据兜底闹钟换成档位里的 [PowerProfile.widgetDaemonFallbackMs]：
+     * 守护进程本身就是一条「随时能精确唤醒」的通道，小部件不需要再靠短周期兜底。
      */
     @Volatile
     private var daemonActive = false
+
+    /** 当前生效的耗电档位（读设置 + 系统省电；容器未就绪时也能读到真实设置）。 */
+    private fun profile(context: Context): ResolvedPowerProfile =
+        PowerProfiles.forContext(context.applicationContext)
 
     /**
      * 由 `AttendanceDaemonService` 在 onStartCommand / onDestroy 时调用。
@@ -120,7 +117,9 @@ internal object WidgetRefreshScheduler {
     fun onWorkerStart(context: Context) {
         ensurePeriodicWork(context)
         ensureAlarm(context)
-        WidgetTicker.startForGrace(context)
+        // 刻意**不**开 ticker：worker 自己已经重绘过一遍，再撑一段 60 秒 ticker
+        // 只会平白多出几分钟的进程内唤醒，而这段时间里又没有任何新的边界要跨。
+        // 需要秒级跟手时应用本来就在前台，前方 ticker 自然在跑（见 WidgetTicker）。
     }
 
     fun cancelAll(context: Context) {
@@ -129,17 +128,39 @@ internal object WidgetRefreshScheduler {
         WidgetTicker.stop()
     }
 
+    /**
+     * 按当前档位重新登记周期任务与兜底闹钟。
+     *
+     * 用户切换耗电档位时必须调用：WorkManager 的周期任务不会因为「档位变了」
+     * 自己改变间隔，必须用 `UPDATE` 重新入队才会生效。
+     */
+    fun reschedule(context: Context) {
+        val appContext = context.applicationContext
+        if (WidgetHostCompat.widgetCount(appContext) == 0) {
+            cancelAll(appContext)
+            return
+        }
+        ensurePeriodicWork(appContext)
+        rescheduleAlarm(appContext)
+        // ticker 的宽限时长也随档位变化（省电档不使用 ticker）。
+        WidgetTicker.onProfileChanged(appContext)
+    }
+
     fun ensurePeriodicWork(context: Context) {
+        val appContext = context.applicationContext
+        val minutes = profile(appContext).widgetPeriodicMinutes
         runCatching {
-            val request = PeriodicWorkRequestBuilder<WidgetRefreshWorker>(15, TimeUnit.MINUTES)
+            val request = PeriodicWorkRequestBuilder<WidgetRefreshWorker>(minutes, TimeUnit.MINUTES)
                 .setConstraints(
                     Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)
                         .build(),
                 )
                 .build()
-            WorkManager.getInstance(context.applicationContext).enqueueUniquePeriodicWork(
+            WorkManager.getInstance(appContext).enqueueUniquePeriodicWork(
                 WORK_NAME,
+                // UPDATE 而不是 KEEP：档位变化必须能改写已排好的间隔，
+                // KEEP 会让老装机型的 60 分钟一直生效，切档形同虚设。
                 ExistingPeriodicWorkPolicy.UPDATE,
                 request,
             )
@@ -281,7 +302,8 @@ internal object WidgetRefreshScheduler {
      * 以及次日零点后 2 分钟（跨天换课表）。
      */
     fun nextTriggerAt(context: Context, now: Long): Long {
-        val fallback = now + if (daemonActive) DAEMON_FALLBACK_MS else DATA_FALLBACK_MS
+        val profile = profile(context)
+        val fallback = now + if (daemonActive) profile.widgetDaemonFallbackMs else profile.widgetFallbackMs
         val boundaries = ArrayList<Long>()
 
         val app = context.applicationContext as? QingxinApp

@@ -147,6 +147,14 @@ class MainActivity : ComponentActivity() {
             val manualState by manualVm.ui.collectAsStateWithLifecycle()
             // 用 rememberSaveable：旋屏 / 进程重建后仍停留在同一页，而不是突然跳回首页。
             var screen by rememberSaveable { mutableStateOf(AppScreen.Home) }
+            // 前台可见性：任何子页面都算「前台」，但只有主页需要二维码。
+            // 这两个信号是 1.2.1 耗电治理的开关 —— 1.2.0 的倒计时与二维码轮询
+            // 从 Activity 创建起一直跑到销毁，与前后台无关（见 MainViewModel）。
+            LifecycleResumeEffect(Unit) {
+                vm.onUiResumed()
+                onPauseOrDispose { vm.onUiPaused() }
+            }
+            LaunchedEffect(screen) { vm.onScreenChanged(screen == AppScreen.Home) }
             // 除首页外的子页面（设置 / 讲座）都支持返回键回首页。
             val subScreen = state.authenticated && screen != AppScreen.Home
             // 系统返回键 / 手势返回：在子页面应回到首页，而不是直接退出 App。
@@ -459,7 +467,7 @@ private fun HomeScreen(
             }
         }
         item {
-            QrCard(state)
+            QrCard(state, vm)
         }
         item {
             Text("全部课程", fontWeight = FontWeight.Bold, fontSize = 15.sp)
@@ -1124,18 +1132,62 @@ private fun AutoSignCard(state: AppUiState, vm: MainViewModel) {
             SettingSwitch(stringResource(R.string.auto_sign_enable), state.settings.autoSignEnabled) {
                 vm.updateSettings(autoSign = it)
             }
-            SettingSwitch(stringResource(R.string.keepalive_low_power), state.settings.lowPowerMode) {
-                vm.updateSettings(lowPower = it)
+            Text(
+                stringResource(R.string.keepalive_low_power_title),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                FilterChip(
+                    selected = !state.settings.lowPowerMode,
+                    onClick = { vm.updateSettings(lowPower = false) },
+                    label = { Text(stringResource(R.string.keepalive_profile_normal)) },
+                )
+                FilterChip(
+                    selected = state.settings.lowPowerMode,
+                    onClick = { vm.updateSettings(lowPower = true) },
+                    label = { Text(stringResource(R.string.keepalive_profile_saver)) },
+                )
             }
             Text(
-                stringResource(R.string.keepalive_low_power_desc),
+                stringResource(
+                    if (state.settings.lowPowerMode) {
+                        R.string.keepalive_profile_saver_desc
+                    } else {
+                        R.string.keepalive_profile_normal_desc
+                    },
+                ),
                 fontSize = 11.sp,
                 color = Color(0xFF6B7C74),
             )
+            Text(
+                stringResource(R.string.keepalive_profile_table),
+                fontSize = 11.sp,
+                color = Color(0xFF6B7C74),
+                lineHeight = 17.sp,
+            )
+            if (ka.systemPowerSave) {
+                Text(
+                    "系统当前处于省电模式：窗口内重试上限已收敛到 3 次，小部件秒级重绘已暂停（不改动你选的档位）。",
+                    fontSize = 11.sp,
+                    color = Color(0xFFB26A00),
+                )
+            }
             if (state.settings.autoSignEnabled) {
                 Text(
                     if (ka.estimatedWakeupsToday > 0) {
-                        stringResource(R.string.keepalive_wakeup_budget, ka.estimatedWakeupsToday)
+                        stringResource(
+                            if (state.settings.lowPowerMode) {
+                                R.string.keepalive_wakeup_budget_saver
+                            } else {
+                                R.string.keepalive_wakeup_budget
+                            },
+                            ka.estimatedWakeupsToday,
+                        )
                     } else {
                         stringResource(R.string.keepalive_wakeup_budget_unknown)
                     },
@@ -1327,12 +1379,19 @@ private fun KeepAliveCard(state: AppUiState, vm: MainViewModel) {
                 ka.lockConfirmed,
                 unknown = !ka.lockConfirmed,
             )
-            if (!ka.lowPowerMode) {
-                StatusRow(
-                    stringResource(R.string.keepalive_status_daemon),
-                    ka.daemonRunning && !ka.daemonBlocked,
-                )
-            }
+            StatusRow(
+                stringResource(
+                    if (ka.lowPowerMode) {
+                        R.string.keepalive_status_daemon_saver
+                    } else {
+                        R.string.keepalive_status_daemon
+                    },
+                ),
+                // 省电档不使用常驻服务：这一行是「说明」而不是「缺失的权限」，
+                // 用 unknown=true 让它显示成灰色说明，而不是一个红色的叉。
+                ka.daemonRunning,
+                unknown = ka.lowPowerMode,
+            )
             if (!ka.autoStartConfirmed) {
                 Text(
                     stringResource(R.string.keepalive_autostart_note),
@@ -1428,7 +1487,7 @@ private fun SettingSwitch(label: String, checked: Boolean, onChange: (Boolean) -
 }
 
 @Composable
-private fun QrCard(state: AppUiState) {
+private fun QrCard(state: AppUiState, vm: MainViewModel) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(16.dp),
@@ -1449,10 +1508,15 @@ private fun QrCard(state: AppUiState) {
                 )
             }
             val qr = state.qr
+            val standby = state.qrStandby
             if (qr == null) {
                 Spacer(Modifier.height(12.dp))
                 Text(
                     when {
+                        standby == QrStandbyReason.WAITING_WINDOW ->
+                            "未到签到时间。进入签到窗口（开课前 25 分钟）后会自动刷新二维码。"
+                        standby == QrStandbyReason.ALL_DONE ->
+                            "今日课程已全部签到完成，不再获取新二维码。"
                         state.selected == null && state.courses.isEmpty() -> "暂无课程，刷新后显示二维码"
                         state.selected == null -> "点选下方课程，或等待默认当前课"
                         state.error.isNotBlank() -> "二维码同步失败，正在重试…"
@@ -1461,11 +1525,20 @@ private fun QrCard(state: AppUiState) {
                     fontSize = 12.sp,
                     color = Color(0xFF5B6B63),
                 )
-                LinearProgressIndicator(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp),
-                )
+                // 只在「策略正在暂停取码」时显示手动入口：正常同步中不需要它，
+                // 失败时显示它会让用户以为点一下就能修好网络。
+                if (standby != QrStandbyReason.NONE) {
+                    OutlinedButton(
+                        onClick = vm::refreshQrNow,
+                        modifier = Modifier.padding(top = 8.dp),
+                    ) { Text("立即获取二维码") }
+                } else {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                    )
+                }
             } else {
                 val bmp = remember(qr.url) { encodeQr(qr.url) }
                 if (bmp != null) {
@@ -1475,19 +1548,37 @@ private fun QrCard(state: AppUiState) {
                         modifier = Modifier.size(180.dp),
                     )
                 }
-                Text(
-                    "二维码有效  剩余：${"%.1f".format(state.qrRemaining)}s",
-                    fontWeight = FontWeight.Medium,
-                )
-                LinearProgressIndicator(
-                    progress = { state.qrProgress.coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                )
-                Text(
-                    "━━━━━━●━━━━  跟随后台时间轴",
-                    fontSize = 11.sp,
-                    color = Color(0xFF6B7C74),
-                )
+                if (standby == QrStandbyReason.NONE) {
+                    Text(
+                        "二维码有效  剩余：${"%.1f".format(state.qrRemaining)}s",
+                        fontWeight = FontWeight.Medium,
+                    )
+                    LinearProgressIndicator(
+                        progress = { state.qrProgress.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    )
+                    Text(
+                        "━━━━━━●━━━━  跟随后台时间轴",
+                        fontSize = 11.sp,
+                        color = Color(0xFF6B7C74),
+                    )
+                } else {
+                    // 策略暂停取码时不再走倒计时环：这张码已经停更，继续倒计时是假的。
+                    Text(
+                        if (standby == QrStandbyReason.WAITING_WINDOW) {
+                            "未到签到时间，已暂停刷新（显示的是最后一次结果）"
+                        } else {
+                            "今日签到已完成，已暂停刷新（显示的是最后一次结果）"
+                        },
+                        fontSize = 12.sp,
+                        color = Color(0xFF5B6B63),
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    OutlinedButton(
+                        onClick = vm::refreshQrNow,
+                        modifier = Modifier.padding(top = 8.dp),
+                    ) { Text("立即获取二维码") }
+                }
                 if (state.selected?.signed == true) {
                     Text(
                         "该课已签到，仍显示二维码供核对",
@@ -1496,6 +1587,14 @@ private fun QrCard(state: AppUiState) {
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
+            }
+            if (state.error.isNotBlank() && standby == QrStandbyReason.NONE) {
+                Text(
+                    state.error,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
             }
         }
     }

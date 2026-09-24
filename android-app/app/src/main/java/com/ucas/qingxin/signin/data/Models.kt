@@ -73,7 +73,12 @@ data class QrSnapshot(
 data class UserSettings(
     val autoSignEnabled: Boolean = false,
     val notifyEnabled: Boolean = true,
-    /** 低耗电模式：不常驻前台服务与常驻通知，仅保留「每节课一个闹钟」。 */
+    /**
+     * 省电模式（旧名「低耗电模式」，取值语义不变，避免升级时把用户的开关重置）。
+     *
+     * 它现在影响的是**整个应用的后台刷新预算**（小部件周期、讲座巡检、重试上限、
+     * 守护服务），而不再只是后台签到通道 —— 见 `PowerProfile`。
+     */
     val lowPowerMode: Boolean = false,
 )
 
@@ -94,4 +99,6 @@ data class KeepAliveState(
     val lockConfirmed: Boolean = false,
     val daemonBlocked: Boolean = false,
     val estimatedWakeupsToday: Int = 0,
+    /** 系统是否处于省电模式（只收紧重试预算与小部件秒级重绘，不改用户档位）。 */
+    val systemPowerSave: Boolean = false,
 )

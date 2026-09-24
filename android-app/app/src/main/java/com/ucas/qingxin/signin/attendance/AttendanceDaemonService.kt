@@ -30,11 +30,21 @@ import kotlinx.coroutines.launch
  * - Android 15 起 `BOOT_COMPLETED` 接收器**禁止**启动 `dataSync` 类型前台服务，
  *   而 `specialUse` 不在禁止名单内（否则开机自启必然抛异常）。
  *
- * 省电设计（关键）：
+ * ## 按需存活（1.2.1 起，这一条是耗电治理的核心）
+ *
+ * 本服务**绝大多数时间不应该在跑**。它只在「临近签到窗口」时由
+ * [AttendanceScheduler.syncDaemon] 或签到槽闹钟拉起，签完（或当天已无待签课）
+ * 就 `stopSelf`。原因很硬：它是 `START_STICKY` 的前台服务，一旦常驻，
+ * 系统就**既不冻结也不回收**这个进程 —— 与前台无关的循环（倒计时、二维码轮询、
+ * 小部件重绘）于是能整夜满速运行。这正是 1.2.0 里「权限给得越全、反而越耗电、
+ * 而开发机复现不到」的直接原因。
+ *
+ * ## 省电设计（关键）
  * - **零轮询**：不做固定间隔循环。协程 `delay` 不持 wakelock、不唤醒 CPU，
  *   因此「睡到下一个随机签到时刻」在设备休眠期间的真实功耗约为 0；
- *   精确唤醒由 [AutoSignAlarmReceiver] 的闹钟负责（每节课仅 1 次）。
- * - 长 `delay` 只用来做「前置提醒」与「到点签到」两件事，且提醒**不占额外唤醒**。
+ *   精确唤醒由 [AutoSignAlarmReceiver] 的闹钟负责。
+ * - 提醒由**独立的提醒槽闹钟**发出，不再依赖本服务是否存活
+ *   （省电档没有本服务，1.2.0 的写法会让省电档完全收不到提醒）。
  * - `onDestroy` 会把 [WidgetRefreshScheduler.setDaemonActive] 复位，让兜底闹钟
  *   恢复到正常频率。
  */
@@ -48,8 +58,8 @@ class AttendanceDaemonService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         AttendanceNotifier.ensureChannels(this)
         val app = application as? QingxinApp
-        if (app == null || !app.isReady || !app.attendanceScheduler.getSettings().autoSignEnabled) {
-            // 未开启自动签到 / 依赖不可用：不留常驻服务。
+        if (app == null || !app.isReady || !AutoSignEngine.shouldRunDaemon(app)) {
+            // 不该常驻：未开启自动签到、依赖不可用、省电档、或今天已经没有待签课程。
             // 必须先 startForeground 再停 —— 若本次是由 startForegroundService 拉起，
             // 直接返回会在约 5 秒后触发「did not call startForeground」崩溃。
             val text = getString(R.string.auto_sign_status_waiting)
@@ -108,48 +118,55 @@ class AttendanceDaemonService : Service() {
      * 1. 已有到期未处理的课次 → 立刻尝试一次，失败则按 60–90 秒节奏再来（预算由引擎计数）；
      * 2. 否则 `delay` 睡到下一个随机时刻（`delay` 不持 wakelock，休眠期间真实功耗 ≈ 0）。
      *
-     * 无事可做（今日已签完 / 无课）时直接退出循环，把后续交给闹钟与 WorkManager。
+     * 无事可做（今日已签完 / 无课）时**主动 `stopSelf()`**，而不是只退出循环：
+     * 本服务是前台服务，`START_STICKY` 下只要不 `stopSelf`，系统就会一直保着这个进程
+     * 不被冻结 —— 那正是 1.2.0 里整夜耗电的根源（见类注释）。
      */
     private fun arm() {
         loopJob?.cancel()
         val app = application as? QingxinApp ?: return
         loopJob = scope.launch {
-            while (isActive) {
-                if (!app.attendanceScheduler.getSettings().autoSignEnabled) break
-                runCatching { AutoSignEngine.refreshDaemonStatus(applicationContext, app, null) }
+            try {
+                while (isActive) {
+                    if (!AutoSignEngine.shouldRunDaemon(app)) break
+                    runCatching { AutoSignEngine.refreshDaemonStatus(applicationContext, app, null) }
 
-                // 1) 到期未处理 → 尝试（含窗口内重试的节奏控制）
-                val due = runCatching { AutoSignEngine.dueNow(applicationContext, app) }.getOrNull()
-                if (due != null) {
+                    // 1) 到期未处理 → 尝试（含窗口内重试的节奏控制）
+                    val due = runCatching { AutoSignEngine.dueNow(applicationContext, app) }.getOrNull()
+                    if (due != null) {
+                        runCatching { AutoSignEngine.runOnce(applicationContext, app) }
+                        runCatching { AttendanceScheduler.ensureSchedule(applicationContext) }
+                        delay(AutoSignWindowRunner.retryDelayMs())
+                        continue
+                    }
+
+                    // 2) 睡到下一个随机时刻
+                    val next = runCatching { AutoSignEngine.nextDue(app) }.getOrNull() ?: break
+                    val remindAt = AutoSignEngine.remindAtFor(next)
+                    val now = System.currentTimeMillis()
+                    // 提醒改用引擎的去重表，因此与提醒槽闹钟共用同一条「只发一次」的判定。
+                    // 条件写成「已到提醒时刻且还没到签到时刻」而不是「提醒时刻在未来」：
+                    // 闹钟恰好在 remindAt 那一刻把服务拉起时，后者会因为相等而漏掉提醒。
+                    if (now >= remindAt && now < next.targetMs) {
+                        runCatching { AutoSignEngine.notifyUpcoming(app, next.course, next.beginMs, next.targetMs) }
+                    } else if (remindAt > now) {
+                        delay(remindAt - now)
+                        if (!isActive) break
+                        runCatching { AutoSignEngine.notifyUpcoming(app, next.course, next.beginMs, next.targetMs) }
+                    }
+
+                    val wait = next.targetMs - System.currentTimeMillis()
+                    if (wait > 0) delay(wait)
+                    // 到点：立即尝试一次，随后回到循环开头由「到期」分支接管重试。
                     runCatching { AutoSignEngine.runOnce(applicationContext, app) }
                     runCatching { AttendanceScheduler.ensureSchedule(applicationContext) }
-                    delay(AutoSignWindowRunner.retryDelayMs())
-                    continue
                 }
-
-                // 2) 睡到下一个随机时刻
-                val next = runCatching { AutoSignEngine.nextDue(app) }.getOrNull() ?: break
-                val remindAt = maxOf(
-                    next.targetMs - AutoSignEngine.UPCOMING_LEAD_MS,
-                    next.beginMs - AutoSignRandomizer.WINDOW_LEAD_MS,
-                )
-                if (remindAt > System.currentTimeMillis()) {
-                    delay(remindAt - System.currentTimeMillis())
-                    if (!isActive) break
-                    runCatching {
-                        app.notifier.notifyAutoSignUpcoming(
-                            next.course.id,
-                            next.course.name,
-                            next.targetMs,
-                        )
-                    }
-                }
-
-                val wait = next.targetMs - System.currentTimeMillis()
-                if (wait > 0) delay(wait)
-                // 到点：立即尝试一次，随后回到循环开头由「到期」分支接管重试。
-                runCatching { AutoSignEngine.runOnce(applicationContext, app) }
-                runCatching { AttendanceScheduler.ensureSchedule(applicationContext) }
+            } finally {
+                // 循环退出 = 今天没有值得常驻的事了：主动退场，把后续交给闹钟与 WorkManager。
+                runCatching { stopForeground(Service.STOP_FOREGROUND_REMOVE) }
+                runCatching { WidgetRefreshScheduler.setDaemonActive(applicationContext, false) }
+                runCatching { (application as? QingxinApp)?.notifier?.clearDaemonStatus() }
+                stopSelf()
             }
         }
     }
