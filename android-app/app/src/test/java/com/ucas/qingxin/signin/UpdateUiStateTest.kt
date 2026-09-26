@@ -38,6 +38,15 @@ class UpdateUiStateTest {
     }
 
     @Test
+    fun `有最新版本但没有更新 时不显示横幅`() {
+        // 「最新版本」是给设置页看的（让用户看得出检查跑过），
+        // 它非空**不能**成为弹横幅的理由 —— 否则版本追平之后主页会一直挂着一条
+        // 「发现新版本」的空提示。
+        val state = UpdateUiState(latest = release("v1.2.1"), available = null)
+        assertFalse(state.showBanner)
+    }
+
+    @Test
     fun `点过稍后则本次不显示`() {
         val state = UpdateUiState(available = release("v1.3.0"), dismissed = true)
         assertFalse(state.showBanner)

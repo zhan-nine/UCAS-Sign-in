@@ -16,6 +16,7 @@ import com.ucas.qingxin.signin.data.UserSettings
 import com.ucas.qingxin.signin.network.ApiException
 import com.ucas.qingxin.signin.network.QingxinApiService
 import com.ucas.qingxin.signin.update.UpdateRelease
+import com.ucas.qingxin.signin.update.UpdateSummary
 import com.ucas.qingxin.signin.update.VersionTags
 import com.ucas.qingxin.signin.widget.TodayCourseWidgetReceiver
 import com.ucas.qingxin.signin.widget.WidgetRefreshScheduler
@@ -106,6 +107,15 @@ data class UpdateUiState(
     val checking: Boolean = false,
     /** 检测到的、版本号高于当前版本的 Release；无更新时为 `null`。 */
     val available: UpdateRelease? = null,
+    /**
+     * 最近一次成功检查发现的**最高版本**，无论它是否高于当前版本；从未成功检查过为 `null`。
+     *
+     * 与 [available] 的分工是「远端最新是什么」vs「有没有新版本」。单列一个字段是为了
+     * **让检查结果始终可见**：用户把应用升到最新之后，[available] 必然是 `null`，
+     * 设置页就只剩一句「已是最新」这类无从核对的结论，看起来就像这个功能没实现；
+     * 有了它就能常显「最新版本 1.2.1（已是最新）」与检查时间。
+     */
+    val latest: UpdateRelease? = null,
     /** 用户点过「不再提示」的版本 tag；未忽略时为空串。 */
     val ignoredTag: String = "",
     /** 上次成功检查的时刻（本地毫秒）；从未检查为 0。 */
@@ -612,21 +622,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val now = System.currentTimeMillis()
                 // 只有**成功**（哪怕是「已是最新」）才记检查时间与结论：
                 // 失败时若也记，等于把一次断网当成「刚查过且没有新版」，
-                // 会让用户手里的新版本提示凭空消失 12 小时。
+                // 会让用户手里的新版本提示凭空消失一整个节流周期。
                 app.updateCheckStore.markChecked(now)
-                app.updateCheckStore.saveAvailable(newer)
+                // 存「远端最高版本」而不是「比当前新的那一版」：后者在追平版本后
+                // 会把结论清成空，设置页随之变回一片空白（见 UpdateCheckStore.cachedLatest）。
+                app.updateCheckStore.saveLatest(latest)
                 _ui.update { state ->
                     state.copy(
                         update = state.update.copy(
                             checking = false,
+                            latest = latest,
                             available = newer,
                             ignoredTag = app.updateCheckStore.ignoredTag(),
                             lastCheckedAtMs = now,
-                            status = if (newer == null) {
-                                "已是最新版本 ${BuildConfig.VERSION_NAME}"
-                            } else {
-                                "发现新版本 ${newer.version}"
-                            },
+                            status = UpdateSummary.statusLine(latest, BuildConfig.VERSION_NAME),
                             error = "",
                             dismissed = if (auto) state.update.dismissed else false,
                         ),
@@ -691,11 +700,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!app.isReady) return fallback
         return runCatching {
             val store = app.updateCheckStore
+            // 缓存里那条若已经不比当前版本新（用户自己装了新版），就不再算「有更新」，
+            // 否则换包之后主页横幅还会挂着上一个版本；但它仍然作为「最新版本」显示，
+            // 让设置页有话可说。
+            val cached = store.cachedLatest()
             fallback.copy(
                 autoCheck = store.isAutoCheckEnabled(),
-                // 缓存里那条若已经不比当前版本新（用户自己装了新版），就地丢弃，
-                // 否则换包之后横幅还会挂着上一个版本。
-                available = store.cachedAvailable()?.takeIf { isNewerThanCurrent(it) },
+                available = cached?.takeIf { isNewerThanCurrent(it) },
+                latest = cached,
                 ignoredTag = store.ignoredTag(),
                 lastCheckedAtMs = store.lastCheckedAtMs(),
             )

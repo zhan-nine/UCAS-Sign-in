@@ -36,7 +36,7 @@ local.properties
 *.ap_
 !releases/
 releases/*.apk
-!releases/qingxin-signin-1.2.1-release.apk
+!releases/qingxin-signin-1.2.2-release.apk
 android-app/app/release/
 dist/
 

@@ -92,6 +92,7 @@ import com.ucas.qingxin.signin.data.AttendanceUiStatus
 import com.ucas.qingxin.signin.data.Course
 import com.ucas.qingxin.signin.update.UpdateRelease
 import com.ucas.qingxin.signin.update.UpdateReleases
+import com.ucas.qingxin.signin.update.UpdateSummary
 import com.ucas.qingxin.signin.util.CourseTimeDisplay
 import com.ucas.qingxin.signin.util.DateInput
 import com.ucas.qingxin.signin.widget.TodayCourseWidgetReceiver
@@ -334,7 +335,7 @@ private fun HomeScreen(
     onOpenManualSign: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    // 进入主页时按需自动检查更新（有 12 小时节流，见 MainViewModel.onEnterHome）。
+    // 进入主页时按需自动检查更新（节流默认 24 小时，见 MainViewModel.onEnterHome）。
     LaunchedEffect(Unit) { vm.onEnterHome() }
     LazyColumn(
         Modifier
@@ -859,30 +860,52 @@ private fun UpdateBanner(state: AppUiState, vm: MainViewModel) {
 }
 
 /**
- * 设置页的「关于 / 更新」卡片。
+ * 设置页的「版本与更新」卡片。
  *
- * 与主页横幅的分工：横幅负责「让用户看到」，这里负责「让用户控制与查询」——
- * 当前版本号、自动检查开关、手动检查、以及已忽略版本的恢复入口都在这里。
+ * ## 标题为什么不叫「关于 / 更新」
+ * 它原先混在「后台运行与省电」与「桌面小部件」之间，叫「关于 / 更新」，
+ * 用户给的反馈是「设置页里根本找不到检查版本的地方」。它本来就是用户主动
+ * 来问「有没有新版」的地方，标题必须自己说清楚，不能靠用户去猜。
+ *
+ * ## 为什么「最新版本」与「上次检查」要常显
+ * [UpdateUiState.available] 只在**有更新**时非空；用户把应用升到最新之后它必然是
+ * 空的，卡片就只剩一句「已是最新」。而那与「这个功能压根没跑起来」在界面上
+ * 无法区分 —— 这正是「看不出有没有在检测」的来源。所以这里额外显示
+ * [UpdateUiState.latest]（远端最高版本号）+ 上次检查时间，无论有没有更新都可见。
+ *
  * 已忽略的版本**仍然显示**，而不是假装不存在：用户要能知道自己当初忽略了什么。
  */
 @Composable
 private fun UpdateCard(state: AppUiState, vm: MainViewModel) {
     val update = state.update
     val context = LocalContext.current
+    val hasNewer = update.available != null
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(16.dp),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("关于 / 更新", fontWeight = FontWeight.Bold)
+            Text("版本与更新", fontWeight = FontWeight.Bold)
             Text(
                 "当前版本 ${update.currentVersion}（${update.currentCode}）",
                 fontSize = 13.sp,
                 color = Color(0xFF4A5C55),
             )
+            // 下面两行是「检查到底跑没跑」的唯一证据，任何时候都在。
+            Text(
+                UpdateSummary.latestLine(update.latest, update.currentVersion),
+                fontSize = 13.sp,
+                color = if (hasNewer) Color(0xFF0F6B4C) else Color(0xFF4A5C55),
+                fontWeight = if (hasNewer) FontWeight.Medium else FontWeight.Normal,
+            )
+            Text(
+                UpdateSummary.lastCheckedLine(update.lastCheckedAtMs),
+                fontSize = 12.sp,
+                color = Color(0xFF6B7C74),
+            )
             SettingSwitch("自动检查更新", update.autoCheck) { vm.setAutoCheckUpdate(it) }
             Text(
-                "进入主页时自动检查一次（约 12 小时一次），发现新版本会在主页提示；" +
+                "进入主页时自动检查一次（约 24 小时一次），发现新版本会在主页提示；" +
                     "也可以随时用下面的按钮手动检查。",
                 fontSize = 11.sp,
                 color = Color(0xFF6B7C74),
@@ -975,6 +998,14 @@ private fun SettingsScreen(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(start = 4.dp),
+                )
+                // 版本号提到页头常显：用户来找「检查版本」时，第一眼就能确认装的是哪一版，
+                // 不必先在长列表里翻到「版本与更新」卡片（见 UpdateCard 的注释）。
+                Spacer(Modifier.weight(1f))
+                Text(
+                    "v${state.update.currentVersion}",
+                    fontSize = 12.sp,
+                    color = Color(0xFF6B7C74),
                 )
             }
         }

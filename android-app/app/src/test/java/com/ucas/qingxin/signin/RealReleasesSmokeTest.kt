@@ -76,8 +76,21 @@ class RealReleasesSmokeTest {
     }
 
     private companion object {
-        /** 与 `app/build.gradle.kts` 的 `versionName` 保持一致（这个用例只做对照说明）。 */
-        const val CURRENT_VERSION = "1.2.0"
+        /**
+         * 当前版本号，直接从 `app/build.gradle.kts` 的 `versionName` 读出来。
+         *
+         * 这里曾经硬编码成 `"1.2.0"`，而应用早已是 1.2.1 —— 于是这个用例一直报告
+         * 「会提示更新：1.2.1 > 1.2.0」，一个真实使用中根本不成立的结论。
+         * 这种「测试自己骗自己」比没有测试更糟：它让一个已经不再提示更新的功能
+         * 看起来一切正常。版本号是会变的，读出来才不会再次脱节。
+         */
+        val CURRENT_VERSION: String by lazy {
+            val candidates = listOf(File("build.gradle.kts"), File("app/build.gradle.kts"))
+            val text = candidates.firstOrNull { it.isFile }?.readText().orEmpty()
+            VERSION_NAME.find(text)?.groupValues?.get(1) ?: "(未能从 build.gradle.kts 读出)"
+        }
+
+        val VERSION_NAME = Regex("versionName\\s*=\\s*\"([^\"]+)\"")
 
         val TAG_NAME = Regex("\"tag_name\"\\s*:\\s*\"([^\"]+)\"")
     }
