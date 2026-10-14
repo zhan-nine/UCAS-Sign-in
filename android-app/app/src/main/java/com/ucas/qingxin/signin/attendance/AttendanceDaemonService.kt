@@ -12,14 +12,19 @@ import androidx.core.app.NotificationCompat
 import com.ucas.qingxin.signin.QingxinApp
 import com.ucas.qingxin.signin.R
 import com.ucas.qingxin.signin.widget.WidgetRefreshScheduler
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.coroutineContext
 
 /**
  * 自动签到守护服务（前台服务，类型 `specialUse`）。
@@ -50,8 +55,9 @@ import kotlinx.coroutines.launch
  */
 class AttendanceDaemonService : Service() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var loopJob: Job? = null
+    private val scheduleChanges = Channel<Unit>(Channel.CONFLATED)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -123,7 +129,11 @@ class AttendanceDaemonService : Service() {
      * 不被冻结 —— 那正是 1.2.0 里整夜耗电的根源（见类注释）。
      */
     private fun arm() {
-        loopJob?.cancel()
+        if (loopJob?.isActive == true) {
+            // 重排只唤醒未来时刻的等待，不能重启循环或打断失败后的冷却。
+            scheduleChanges.trySend(Unit)
+            return
+        }
         val app = application as? QingxinApp ?: return
         loopJob = scope.launch {
             try {
@@ -134,7 +144,9 @@ class AttendanceDaemonService : Service() {
                     // 1) 到期未处理 → 尝试（含窗口内重试的节奏控制）
                     val due = runCatching { AutoSignEngine.dueNow(applicationContext, app) }.getOrNull()
                     if (due != null) {
-                        runCatching { AutoSignEngine.runOnce(applicationContext, app) }
+                        runEngine(app)
+                        // 引擎的降级路径可能吞掉取消；停止服务后绝不能再重排并拉起自己。
+                        coroutineContext.ensureActive()
                         runCatching { AttendanceScheduler.ensureSchedule(applicationContext) }
                         delay(AutoSignWindowRunner.retryDelayMs())
                         continue
@@ -150,16 +162,13 @@ class AttendanceDaemonService : Service() {
                     if (now >= remindAt && now < next.targetMs) {
                         runCatching { AutoSignEngine.notifyUpcoming(app, next.course, next.beginMs, next.targetMs) }
                     } else if (remindAt > now) {
-                        delay(remindAt - now)
-                        if (!isActive) break
-                        runCatching { AutoSignEngine.notifyUpcoming(app, next.course, next.beginMs, next.targetMs) }
+                        waitForSchedule(remindAt - now)
+                        continue
                     }
 
                     val wait = next.targetMs - System.currentTimeMillis()
-                    if (wait > 0) delay(wait)
-                    // 到点：立即尝试一次，随后回到循环开头由「到期」分支接管重试。
-                    runCatching { AutoSignEngine.runOnce(applicationContext, app) }
-                    runCatching { AttendanceScheduler.ensureSchedule(applicationContext) }
+                    if (wait > 0) waitForSchedule(wait)
+                    // 到点或课表改变后重新选课；所有尝试都走上面的冷却分支。
                 }
             } finally {
                 // 循环退出 = 今天没有值得常驻的事了：主动退场，把后续交给闹钟与 WorkManager。
@@ -169,6 +178,18 @@ class AttendanceDaemonService : Service() {
                 stopSelf()
             }
         }
+    }
+
+    private suspend fun waitForSchedule(waitMs: Long) {
+        withTimeoutOrNull(waitMs) { scheduleChanges.receive() }
+    }
+
+    private suspend fun runEngine(app: QingxinApp): EngineOutcome = try {
+        AutoSignEngine.runOnce(applicationContext, app)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        EngineOutcome.RETRY
     }
 
     private fun fallbackNotification(text: String): Notification =

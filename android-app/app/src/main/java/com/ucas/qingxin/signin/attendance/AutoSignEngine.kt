@@ -215,39 +215,44 @@ internal object AutoSignEngine {
 
     // ------------------------------------------------------------------ 查询 / 状态
 
-    /** 此刻「已经到达随机时刻、可以立刻尝试」的课（不产生任何网络请求）。 */
-    fun dueNow(context: Context, app: QingxinApp, courses: List<Course>? = null): Course? {
+    /** 此刻需要处理的课；预算耗尽时仍须交给 runOnce 核对并结算。 */
+    fun dueNow(
+        context: Context,
+        app: QingxinApp,
+        courses: List<Course>? = null,
+        nowMs: Long = System.currentTimeMillis(),
+    ): Course? {
         if (!app.isReady) return null
         val list = effectiveCourses(app, courses) ?: return null
         if (list.isEmpty()) return null
         val today = AutoSignRandomizer.todayKey()
-        val now = System.currentTimeMillis()
         val parseBegin: (Course) -> Long? = { c ->
             runCatching { app.courseRepository.parseBeginMs(c) }.getOrNull()
         }
-        val cap = attemptCap(context)
-        val candidates = pending(list, today)
-            .filter { (attempts[keyOf(courseIdOf(it), today)] ?: 0) < cap }
         return AutoSignSelector.selectDue(
-            candidates,
-            now,
+            pending(list, today),
+            nowMs,
             parseBegin,
-            { c, begin -> AutoSignRandomizer.targetMsFor(c.id, begin, now, today) },
+            { c, begin -> AutoSignRandomizer.targetMsFor(courseIdOf(c), begin, nowMs, today) },
             toleranceMs = earlyToleranceMs(context),
         )
     }
 
     /** 今日下一个待签课次（含已冻结的随机时刻）。用于排闹钟与守护服务计时。 */
-    fun nextDue(app: QingxinApp, courses: List<Course>? = null): DueCourse? {        if (!app.isReady) return null
+    fun nextDue(
+        app: QingxinApp,
+        courses: List<Course>? = null,
+        nowMs: Long = System.currentTimeMillis(),
+    ): DueCourse? {
+        if (!app.isReady) return null
         val list = effectiveCourses(app, courses) ?: return null
         if (list.isEmpty()) return null
         val today = AutoSignRandomizer.todayKey()
-        val now = System.currentTimeMillis()
         val parseBegin: (Course) -> Long? = { c ->
             runCatching { app.courseRepository.parseBeginMs(c) }.getOrNull()
         }
-        val picked = AutoSignSelector.selectNext(list, now, parseBegin) { c, begin ->
-            AutoSignRandomizer.targetMsFor(courseIdOf(c), begin, now, today)
+        val picked = AutoSignSelector.selectNext(pending(list, today), nowMs, parseBegin) { c, begin ->
+            AutoSignRandomizer.targetMsFor(courseIdOf(c), begin, nowMs, today)
         } ?: return null
         val begin = parseBegin(picked.first) ?: return null
         return DueCourse(picked.first, begin, picked.second)
@@ -257,7 +262,7 @@ internal object AutoSignEngine {
      * 守护服务现在是否「值得」活着。
      *
      * 三个条件缺一不可：自动签到开着、当前档位允许常驻服务（省电档不允许）、
-     * 且下一节课的提醒时刻已经进入 [DAEMON_LOOKAHEAD_MS] 之内。
+     * 且仍有窗口内的待签课程，或下一节课的提醒已进入 [DAEMON_LOOKAHEAD_MS] 之内。
      *
      * 最后一条是 1.2.1 的新约束，也是耗电治理的核心：1.2.0 里每次打开 App 都会
      * 拉起这个前台服务，它带着常驻通知活一整天，系统因此**既不冻结也不回收**进程，
@@ -267,8 +272,15 @@ internal object AutoSignEngine {
         if (!app.isReady) return false
         if (!app.attendanceScheduler.getSettings().autoSignEnabled) return false
         if (!app.powerProfile().daemonEnabled) return false
-        val due = runCatching { nextDue(app) }.getOrNull() ?: return false
-        return remindAtFor(due) - nowMs <= DAEMON_LOOKAHEAD_MS
+        val list = effectiveCourses(app, null) ?: return false
+        val today = AutoSignRandomizer.todayKey()
+        return AutoSignSelector.hasDaemonWork(
+            pending(list, today),
+            nowMs,
+            { c -> runCatching { app.courseRepository.parseBeginMs(c) }.getOrNull() },
+            { c, begin -> AutoSignRandomizer.targetMsFor(courseIdOf(c), begin, nowMs, today) },
+            DAEMON_LOOKAHEAD_MS,
+        )
     }
 
     /** 守护服务提前多久进入「值得存活」的状态。 */
@@ -282,6 +294,9 @@ internal object AutoSignEngine {
         val list = effectiveCourses(app, courses)
             ?: return context.getString(R.string.auto_sign_status_waiting)
         if (list.isEmpty()) return context.getString(R.string.auto_sign_status_no_course)
+        if (dueNow(context, app, list) != null) {
+            return context.getString(R.string.auto_sign_status_waiting)
+        }
         val next = nextDue(app, list)
             ?: return context.getString(R.string.auto_sign_status_all_done)
         return context.getString(
@@ -602,6 +617,20 @@ internal object AutoSignEngine {
  * 「该不该现在签到」的纯逻辑，抽出来便于单元测试。
  */
 internal object AutoSignSelector {
+
+    /** 守护服务覆盖整个重试窗口；闹钟仍由 selectNext 只选择未来时刻。 */
+    fun hasDaemonWork(
+        courses: List<Course>,
+        nowMs: Long,
+        parseBegin: (Course) -> Long?,
+        targetOf: (Course, Long) -> Long,
+        lookaheadMs: Long,
+    ): Boolean = courses.any { course ->
+        if (course.signed) return@any false
+        val begin = parseBegin(course) ?: return@any false
+        if (nowMs > AutoSignRandomizer.deadlineMs(begin)) return@any false
+        AutoSignEngine.remindAtFor(begin, targetOf(course, begin)) - nowMs <= lookaheadMs
+    }
 
     /**
      * 挑出此刻应当自动签到的课。
