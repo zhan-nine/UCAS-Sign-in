@@ -57,3 +57,13 @@ tools/out/
 # —— 这些文件里含校内主机名与端口，且非本项目产物，绝不入库
 .cursor/_probe_tmp/
 .research_readonly/
+
+# iOS local settings, caches, signing and build products
+ios-app/.build/
+ios-app/build-*/
+ios-app/.swiftpm/
+ios-app/Config/Local.xcconfig
+ios-app/**/xcuserdata/
+ios-app/**/*.xcuserstate
+*.ipa
+*.xcarchive/

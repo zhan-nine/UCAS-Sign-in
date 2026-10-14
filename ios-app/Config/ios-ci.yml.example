@@ -1,0 +1,24 @@
+name: iOS
+on:
+  push:
+    branches: [ios-port]
+    paths: ['ios-app/**', '.github/workflows/ios.yml']
+  pull_request:
+    paths: ['ios-app/**', '.github/workflows/ios.yml']
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test protocol and time handling
+        working-directory: ios-app
+        run: swift test
+      - name: Generate project
+        working-directory: ios-app
+        run: |
+          brew install xcodegen
+          cp Config/Local.xcconfig.example Config/Local.xcconfig
+          xcodegen generate
+      - name: Build app and widget for simulator
+        working-directory: ios-app
+        run: xcodebuild -project Qingxin.xcodeproj -scheme Qingxin -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build

@@ -1,6 +1,16 @@
 NOTICE
 ======
 
+2026-10-02 iOS port / iOS 移植
+-----------------------------
+新增 ios-app/，包含 SwiftUI 主应用、WidgetKit 扩展、原生 Keychain 存储与
+可独立测试的 QingxinCore Swift Package。
+依据 zhan-nine/UCAS-Sign-in commit 0ae6ed9d277434f37456cc7af7420d3dc2f5b13d
+适配原项目的网络协议、课程模型、编号判断与二维码服务器校时。
+新增部分按 AGPL-3.0 授权；原有许可证及第三方归属声明继续保留。
+移植源码：https://github.com/Vel044/UCAS-Sign-in/tree/ios-port
+本修改版不代表原作者或学校的官方发行。
+
 本项目（**UCAS-Sign-in**）在开发中参考并使用了以下开源项目的思路、接口约定
 与/或实现片段。根据 AGPL-3.0 及 LGPL-3.0 的要求，特此声明：
 
