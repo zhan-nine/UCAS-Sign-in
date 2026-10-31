@@ -67,3 +67,13 @@ docs/sign-records.txt
 # 源码入库（它是 §10.20 全部数字的来源，要可复现），跑一次产生的这些不要入库。
 android-app/tools/scan-bench/merged/
 android-app/tools/scan-bench/*.class
+
+# iOS local settings, caches, signing and build products
+ios-app/.build/
+ios-app/build-*/
+ios-app/.swiftpm/
+ios-app/Config/Local.xcconfig
+ios-app/**/xcuserdata/
+ios-app/**/*.xcuserstate
+*.ipa
+*.xcarchive/

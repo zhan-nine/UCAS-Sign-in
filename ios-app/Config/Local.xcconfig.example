@@ -1,0 +1,7 @@
+// Copy to Local.xcconfig. Use your Apple Developer team for a physical device.
+// DEVELOPMENT_TEAM = YOUR_TEAM_ID
+// QINGXIN_BUNDLE_ID = your.unique.qingxin
+// APP_GROUP_IDENTIFIER = group.YOUR_UNIQUE_IDENTIFIER.qingxin
+// Optional base64-encoded EndpointConfiguration JSON for a private local build.
+// This is configuration transport, not encryption. Do not commit actual endpoints.
+QINGXIN_BOOTSTRAP =

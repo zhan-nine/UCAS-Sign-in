@@ -1,0 +1,767 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		14A04FAAD0983C4122E3CE36 /* SecureStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE34541DB5022783DDDF582 /* SecureStore.swift */; };
+		29ED1C92E4CB372E557753B1 /* LectureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B8A3263100717FD2E12B86A /* LectureView.swift */; };
+		51363A96D95B63A5F1363E7F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E5AF153C6A2D6B2EF1536E41 /* Assets.xcassets */; };
+		515ACCF9433CEDB1B135C4FE /* ReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D9A39A6C3DBDB61ECBD2FF /* ReminderService.swift */; };
+		526DE9AF58768E8DD4E35C55 /* QingxinWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A171B1C465E93E7A0232AC6B /* QingxinWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		572733BE997CACA7EC39CAD5 /* SnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 024BEC2F4C4DA72CBE465BCE /* SnapshotStore.swift */; };
+		582AA42E95B890C9D50E591A /* QRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943BC794A3C4214AE66EFB69 /* QRView.swift */; };
+		5D8683686045A831D637E6D1 /* QingxinApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 850F97553DE4FA0F3291D79D /* QingxinApp.swift */; };
+		6291DFF7B9D472C37BF3DC8B /* QingxinCore in Frameworks */ = {isa = PBXBuildFile; productRef = 24EDF861BD65D50435320E59 /* QingxinCore */; };
+		62D3F5DDA656470C9743B77D /* QingxinCore in Frameworks */ = {isa = PBXBuildFile; productRef = 10654269F113174BE2382BF2 /* QingxinCore */; };
+		740B402755603CFB6A1E3D83 /* QingxinUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F0FB30323C83C179EDE426 /* QingxinUITests.swift */; };
+		B6987680A362144E85543348 /* QingxinWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 457DD49EBDF130CE9BE8620B /* QingxinWidget.swift */; };
+		D83E5CB24F228962B85C5026 /* AGPL-3.0.txt in Resources */ = {isa = PBXBuildFile; fileRef = 46BAA41B8C441FDF000F17AC /* AGPL-3.0.txt */; };
+		DF75E1E98C7A1F27A781691E /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C93FF58D410B25C4A654C62 /* AppState.swift */; };
+		E48BC4AC6FD03B95E7788DD9 /* AppStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AC0285141EBB3E966568D7D /* AppStateTests.swift */; };
+		EF508B33F62B1FDA10003B98 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 972F15624E7E4ED349CC9A44 /* RootView.swift */; };
+		FFCD830CDFA7D5222614D1BE /* QingxinCore in Frameworks */ = {isa = PBXBuildFile; productRef = 646BBB29ECFEAF23808F9BA6 /* QingxinCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		1BDEEECC69CD68F6080F4F82 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CA8330C3E138F9B24524FD7D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4515C384F75C40DBEC61F4E9;
+			remoteInfo = Qingxin;
+		};
+		6549953E52C14628D2F200A9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CA8330C3E138F9B24524FD7D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4515C384F75C40DBEC61F4E9;
+			remoteInfo = Qingxin;
+		};
+		D862777544E529C5F1E9B655 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CA8330C3E138F9B24524FD7D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C0169206A85CC9276B03DCB4;
+			remoteInfo = QingxinWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		3ACEC119604D174F3F3746BF /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				526DE9AF58768E8DD4E35C55 /* QingxinWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		024BEC2F4C4DA72CBE465BCE /* SnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotStore.swift; sourceTree = "<group>"; };
+		18F0FB30323C83C179EDE426 /* QingxinUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QingxinUITests.swift; sourceTree = "<group>"; };
+		3A2D6379808D04F34146C11B /* Qingxin.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Qingxin.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3AC0285141EBB3E966568D7D /* AppStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTests.swift; sourceTree = "<group>"; };
+		3B8A3263100717FD2E12B86A /* LectureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LectureView.swift; sourceTree = "<group>"; };
+		428B184C8664E1F18F54E54C /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
+		457DD49EBDF130CE9BE8620B /* QingxinWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QingxinWidget.swift; sourceTree = "<group>"; };
+		46BAA41B8C441FDF000F17AC /* AGPL-3.0.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "AGPL-3.0.txt"; sourceTree = "<group>"; };
+		4C93FF58D410B25C4A654C62 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		56DA2D4231988CF905D2DBBF /* QingxinAppTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = QingxinAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		59D9A39A6C3DBDB61ECBD2FF /* ReminderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderService.swift; sourceTree = "<group>"; };
+		67FEF76F03AC6F393F30CFCB /* QingxinUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = QingxinUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		850F97553DE4FA0F3291D79D /* QingxinApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QingxinApp.swift; sourceTree = "<group>"; };
+		943BC794A3C4214AE66EFB69 /* QRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRView.swift; sourceTree = "<group>"; };
+		972F15624E7E4ED349CC9A44 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		A171B1C465E93E7A0232AC6B /* QingxinWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = QingxinWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		ACE34541DB5022783DDDF582 /* SecureStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureStore.swift; sourceTree = "<group>"; };
+		E5AF153C6A2D6B2EF1536E41 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FDD912175DD90E89927DA2E9 /* ios-app */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "ios-app"; path = .; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		590DDB7A8E3B2FD1799E5DA3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6291DFF7B9D472C37BF3DC8B /* QingxinCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8ED540A93CABFEF9CE19210D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				62D3F5DDA656470C9743B77D /* QingxinCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC1E89CB283B6B59BAC278D1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FFCD830CDFA7D5222614D1BE /* QingxinCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		245EE7BF03F0631C61C7B7C5 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				FDD912175DD90E89927DA2E9 /* ios-app */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		53CB5F04928F3579728AFD57 /* AppTests */ = {
+			isa = PBXGroup;
+			children = (
+				3AC0285141EBB3E966568D7D /* AppStateTests.swift */,
+			);
+			path = AppTests;
+			sourceTree = "<group>";
+		};
+		5475B3897DB297F124C2361E /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				428B184C8664E1F18F54E54C /* Local.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		6152121AA559CCAC980E7371 /* LICENSES */ = {
+			isa = PBXGroup;
+			children = (
+				46BAA41B8C441FDF000F17AC /* AGPL-3.0.txt */,
+			);
+			path = LICENSES;
+			sourceTree = "<group>";
+		};
+		626E9263AA55A6C301D609A5 /* UCAS-Sign-in-iOS */ = {
+			isa = PBXGroup;
+			children = (
+				6152121AA559CCAC980E7371 /* LICENSES */,
+			);
+			name = "UCAS-Sign-in-iOS";
+			path = ..;
+			sourceTree = "<group>";
+		};
+		7480BF2DFEC2F9FAB2567EA4 /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				457DD49EBDF130CE9BE8620B /* QingxinWidget.swift */,
+			);
+			path = Widget;
+			sourceTree = "<group>";
+		};
+		961555A650F5D38BB3EB68CA = {
+			isa = PBXGroup;
+			children = (
+				D6A9C96E6A1501D1D298CC32 /* App */,
+				53CB5F04928F3579728AFD57 /* AppTests */,
+				5475B3897DB297F124C2361E /* Config */,
+				245EE7BF03F0631C61C7B7C5 /* Packages */,
+				626E9263AA55A6C301D609A5 /* UCAS-Sign-in-iOS */,
+				A424C237FDB3B26CDFA9CC03 /* UITests */,
+				7480BF2DFEC2F9FAB2567EA4 /* Widget */,
+				B01D2B260D5D21A02467F4FE /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A424C237FDB3B26CDFA9CC03 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				18F0FB30323C83C179EDE426 /* QingxinUITests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		B01D2B260D5D21A02467F4FE /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				3A2D6379808D04F34146C11B /* Qingxin.app */,
+				56DA2D4231988CF905D2DBBF /* QingxinAppTests.xctest */,
+				67FEF76F03AC6F393F30CFCB /* QingxinUITests.xctest */,
+				A171B1C465E93E7A0232AC6B /* QingxinWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D6A9C96E6A1501D1D298CC32 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				4C93FF58D410B25C4A654C62 /* AppState.swift */,
+				E5AF153C6A2D6B2EF1536E41 /* Assets.xcassets */,
+				3B8A3263100717FD2E12B86A /* LectureView.swift */,
+				850F97553DE4FA0F3291D79D /* QingxinApp.swift */,
+				943BC794A3C4214AE66EFB69 /* QRView.swift */,
+				59D9A39A6C3DBDB61ECBD2FF /* ReminderService.swift */,
+				972F15624E7E4ED349CC9A44 /* RootView.swift */,
+				ACE34541DB5022783DDDF582 /* SecureStore.swift */,
+				024BEC2F4C4DA72CBE465BCE /* SnapshotStore.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		4515C384F75C40DBEC61F4E9 /* Qingxin */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6C192DCE9261CB9CA77673E1 /* Build configuration list for PBXNativeTarget "Qingxin" */;
+			buildPhases = (
+				FC50FA7EDD3BCE5F84BAD407 /* Sources */,
+				6CAF6A2E6E4C14EE13CAF564 /* Resources */,
+				8ED540A93CABFEF9CE19210D /* Frameworks */,
+				3ACEC119604D174F3F3746BF /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				208F4ECECC76C8423023A03E /* PBXTargetDependency */,
+			);
+			name = Qingxin;
+			packageProductDependencies = (
+				10654269F113174BE2382BF2 /* QingxinCore */,
+			);
+			productName = Qingxin;
+			productReference = 3A2D6379808D04F34146C11B /* Qingxin.app */;
+			productType = "com.apple.product-type.application";
+		};
+		8851BFB7C87935FC50516721 /* QingxinUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DCCD5480F710DB298811382 /* Build configuration list for PBXNativeTarget "QingxinUITests" */;
+			buildPhases = (
+				18D9213E961DEC23E304557C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F8CC9413A1E25935CD52D55C /* PBXTargetDependency */,
+			);
+			name = QingxinUITests;
+			packageProductDependencies = (
+			);
+			productName = QingxinUITests;
+			productReference = 67FEF76F03AC6F393F30CFCB /* QingxinUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		C0169206A85CC9276B03DCB4 /* QingxinWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D2555BA66ABFC599F24E5D89 /* Build configuration list for PBXNativeTarget "QingxinWidget" */;
+			buildPhases = (
+				0E0B6A368CD1DB8877FD560F /* Sources */,
+				CC1E89CB283B6B59BAC278D1 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = QingxinWidget;
+			packageProductDependencies = (
+				646BBB29ECFEAF23808F9BA6 /* QingxinCore */,
+			);
+			productName = QingxinWidget;
+			productReference = A171B1C465E93E7A0232AC6B /* QingxinWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		C9B956F033AB62A111326F4C /* QingxinAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 29FF391713FA1CDA9D41ED83 /* Build configuration list for PBXNativeTarget "QingxinAppTests" */;
+			buildPhases = (
+				76B89F64FB4414D7CA6BBEA8 /* Sources */,
+				590DDB7A8E3B2FD1799E5DA3 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5A1586D0A359FCCA5DEFC074 /* PBXTargetDependency */,
+			);
+			name = QingxinAppTests;
+			packageProductDependencies = (
+				24EDF861BD65D50435320E59 /* QingxinCore */,
+			);
+			productName = QingxinAppTests;
+			productReference = 56DA2D4231988CF905D2DBBF /* QingxinAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CA8330C3E138F9B24524FD7D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					4515C384F75C40DBEC61F4E9 = {
+						ProvisioningStyle = Automatic;
+					};
+					8851BFB7C87935FC50516721 = {
+						ProvisioningStyle = Automatic;
+						TestTargetID = 4515C384F75C40DBEC61F4E9;
+					};
+					C0169206A85CC9276B03DCB4 = {
+						ProvisioningStyle = Automatic;
+					};
+					C9B956F033AB62A111326F4C = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 8227AC56D4690A211A4AC093 /* Build configuration list for PBXProject "Qingxin" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 961555A650F5D38BB3EB68CA;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				1612378CB9FD60E76DA53FBE /* XCLocalSwiftPackageReference "." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = B01D2B260D5D21A02467F4FE /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4515C384F75C40DBEC61F4E9 /* Qingxin */,
+				C9B956F033AB62A111326F4C /* QingxinAppTests */,
+				8851BFB7C87935FC50516721 /* QingxinUITests */,
+				C0169206A85CC9276B03DCB4 /* QingxinWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		6CAF6A2E6E4C14EE13CAF564 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D83E5CB24F228962B85C5026 /* AGPL-3.0.txt in Resources */,
+				51363A96D95B63A5F1363E7F /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0E0B6A368CD1DB8877FD560F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B6987680A362144E85543348 /* QingxinWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18D9213E961DEC23E304557C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				740B402755603CFB6A1E3D83 /* QingxinUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		76B89F64FB4414D7CA6BBEA8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E48BC4AC6FD03B95E7788DD9 /* AppStateTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC50FA7EDD3BCE5F84BAD407 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DF75E1E98C7A1F27A781691E /* AppState.swift in Sources */,
+				29ED1C92E4CB372E557753B1 /* LectureView.swift in Sources */,
+				582AA42E95B890C9D50E591A /* QRView.swift in Sources */,
+				5D8683686045A831D637E6D1 /* QingxinApp.swift in Sources */,
+				515ACCF9433CEDB1B135C4FE /* ReminderService.swift in Sources */,
+				EF508B33F62B1FDA10003B98 /* RootView.swift in Sources */,
+				14A04FAAD0983C4122E3CE36 /* SecureStore.swift in Sources */,
+				572733BE997CACA7EC39CAD5 /* SnapshotStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		208F4ECECC76C8423023A03E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C0169206A85CC9276B03DCB4 /* QingxinWidget */;
+			targetProxy = D862777544E529C5F1E9B655 /* PBXContainerItemProxy */;
+		};
+		5A1586D0A359FCCA5DEFC074 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4515C384F75C40DBEC61F4E9 /* Qingxin */;
+			targetProxy = 6549953E52C14628D2F200A9 /* PBXContainerItemProxy */;
+		};
+		F8CC9413A1E25935CD52D55C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4515C384F75C40DBEC61F4E9 /* Qingxin */;
+			targetProxy = 1BDEEECC69CD68F6080F4F82 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		06F57112BA1C670C5C1BBEE6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(QINGXIN_BUNDLE_ID).uitests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Qingxin;
+			};
+			name = Debug;
+		};
+		0E0BE7C8F91157FB8288E3FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(QINGXIN_BUNDLE_ID).apptests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Qingxin.app/Qingxin";
+			};
+			name = Release;
+		};
+		20AB319BEF8B40B08CEAB60A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 428B184C8664E1F18F54E54C /* Local.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APP_GROUP_IDENTIFIER = group.com.vel.qingxin;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				QINGXIN_BUNDLE_ID = com.vel.qingxin;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		427B379A2A86A224453722B8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Config/App.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = "Config/App-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "清新签到";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(QINGXIN_BUNDLE_ID)";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		8563DB93440A7104F4AD3359 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 428B184C8664E1F18F54E54C /* Local.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APP_GROUP_IDENTIFIER = group.com.vel.qingxin;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				QINGXIN_BUNDLE_ID = com.vel.qingxin;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		87C592B13E8062CB3109126B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(QINGXIN_BUNDLE_ID).apptests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Qingxin.app/Qingxin";
+			};
+			name = Debug;
+		};
+		9DA0FA5F954C06A578E7BE7D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/Widget.entitlements;
+				INFOPLIST_FILE = "Config/Widget-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(QINGXIN_BUNDLE_ID).widget";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		AAAC8914E1FA5D4787CEB647 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/Widget.entitlements;
+				INFOPLIST_FILE = "Config/Widget-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(QINGXIN_BUNDLE_ID).widget";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		CFB0BBA525094E1E50488F2B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Config/App.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = "Config/App-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "清新签到";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(QINGXIN_BUNDLE_ID)";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		E740B9FCF1E638245CD678BA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(QINGXIN_BUNDLE_ID).uitests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Qingxin;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DCCD5480F710DB298811382 /* Build configuration list for PBXNativeTarget "QingxinUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				06F57112BA1C670C5C1BBEE6 /* Debug */,
+				E740B9FCF1E638245CD678BA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		29FF391713FA1CDA9D41ED83 /* Build configuration list for PBXNativeTarget "QingxinAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				87C592B13E8062CB3109126B /* Debug */,
+				0E0BE7C8F91157FB8288E3FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6C192DCE9261CB9CA77673E1 /* Build configuration list for PBXNativeTarget "Qingxin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				427B379A2A86A224453722B8 /* Debug */,
+				CFB0BBA525094E1E50488F2B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8227AC56D4690A211A4AC093 /* Build configuration list for PBXProject "Qingxin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				20AB319BEF8B40B08CEAB60A /* Debug */,
+				8563DB93440A7104F4AD3359 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D2555BA66ABFC599F24E5D89 /* Build configuration list for PBXNativeTarget "QingxinWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAAC8914E1FA5D4787CEB647 /* Debug */,
+				9DA0FA5F954C06A578E7BE7D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		1612378CB9FD60E76DA53FBE /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		10654269F113174BE2382BF2 /* QingxinCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = QingxinCore;
+		};
+		24EDF861BD65D50435320E59 /* QingxinCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = QingxinCore;
+		};
+		646BBB29ECFEAF23808F9BA6 /* QingxinCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = QingxinCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = CA8330C3E138F9B24524FD7D /* Project object */;
+}
